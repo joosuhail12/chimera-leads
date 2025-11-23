@@ -13,7 +13,7 @@ export default async function DashboardPage() {
               Welcome back, {user?.firstName}!
             </h1>
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-              Here's what's happening with your pipeline today
+              Here&apos;s what&apos;s happening with your pipeline today
             </p>
           </div>
           <div className="text-right">

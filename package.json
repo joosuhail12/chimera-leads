@@ -15,7 +15,9 @@
     "next": "16.0.3",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "vercel": "^48.10.10"
+    "svix": "^1.81.0",
+    "vercel": "^48.10.10",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
