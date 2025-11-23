@@ -187,7 +187,7 @@ function formatErrorMessage(error: unknown) {
   if (error instanceof ZodError) {
     return (
       "Payload validation failed: " +
-      error.errors.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ")
+      error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ")
     );
   }
 
