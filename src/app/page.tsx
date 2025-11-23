@@ -1,65 +1,163 @@
 import Image from "next/image";
+import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
-export default function Home() {
+export default async function Home() {
+  const { userId } = await auth();
+
+  // Redirect authenticated users to dashboard
+  if (userId) {
+    redirect("/dashboard");
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+    <div className="min-h-screen overflow-hidden bg-gradient-to-br from-chimera-navy/5 via-background to-chimera-teal/5">
+      {/* Floating Background Elements */}
+      <div className="absolute inset-0">
+        <div className="absolute left-[10%] top-[15%] h-64 w-64 animate-float rounded-none bg-chimera-teal/20 blur-2xl" />
+        <div className="absolute right-[15%] top-[25%] h-80 w-80 animate-float-delayed rounded-none bg-chimera-purple/15 blur-3xl" />
+        <div className="absolute bottom-[20%] left-[40%] h-72 w-72 animate-float rounded-none bg-chimera-lime/10 blur-2xl" />
+      </div>
+
+      {/* Hero Section */}
+      <section className="relative flex min-h-screen flex-col items-center justify-center px-6 py-20">
+        <div className="relative z-10 flex max-w-6xl flex-col items-center gap-16">
+          {/* Logo in Brutal Glass Container */}
+          <div className="brutal-glass w-full max-w-2xl p-10">
             <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+              src="/chimera-wordmark.png"
+              alt="Chimera"
+              width={920}
+              height={200}
+              priority
+              className="w-full"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          </div>
+
+          {/* Tagline */}
+          <div className="max-w-4xl text-center">
+            <h1 className="text-6xl font-black uppercase leading-tight tracking-tight text-foreground md:text-7xl lg:text-8xl">
+              Lead Management
+              <br />
+              <span className="bg-gradient-to-r from-chimera-teal via-chimera-purple to-chimera-teal bg-clip-text text-transparent">
+                Simplified
+              </span>
+            </h1>
+            <p className="mt-8 text-xl font-bold uppercase tracking-wide text-foreground/70 md:text-2xl">
+              Internal CRM for High-Performance Teams
+            </p>
+          </div>
+
+          {/* CTA Button */}
+          <Link
+            href="/sign-in"
+            className="brutal-glass-button px-12 py-5 text-2xl uppercase tracking-wider md:text-3xl"
           >
-            Documentation
-          </a>
+            Sign In
+          </Link>
         </div>
-      </main>
+      </section>
+
+      {/* Feature Highlights */}
+      <section className="relative px-6 py-32">
+        <div className="mx-auto max-w-7xl">
+          <h2 className="mb-20 text-center text-5xl font-black uppercase tracking-tight text-foreground md:text-6xl">
+            Built for Speed
+          </h2>
+
+          <div className="grid gap-8 md:grid-cols-3">
+            {/* Feature 1 */}
+            <div className="brutal-glass-teal group p-8">
+              <div className="mb-6 flex h-20 w-20 items-center justify-center border-3 border-chimera-teal bg-chimera-teal/10">
+                <span className="text-4xl font-black text-chimera-teal">01</span>
+              </div>
+              <h3 className="mb-4 text-3xl font-black uppercase tracking-tight text-foreground">
+                Track Leads
+              </h3>
+              <p className="text-lg font-semibold text-foreground/70">
+                Centralized pipeline management with real-time updates and intelligent routing.
+              </p>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="brutal-glass-purple group p-8">
+              <div className="mb-6 flex h-20 w-20 items-center justify-center border-3 border-chimera-purple bg-chimera-purple/10">
+                <span className="text-4xl font-black text-chimera-purple">02</span>
+              </div>
+              <h3 className="mb-4 text-3xl font-black uppercase tracking-tight text-foreground">
+                Automate Workflows
+              </h3>
+              <p className="text-lg font-semibold text-foreground/70">
+                Eliminate manual tasks with smart automation and custom triggers.
+              </p>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="brutal-glass-lime group p-8">
+              <div className="mb-6 flex h-20 w-20 items-center justify-center border-3 border-chimera-lime bg-chimera-lime/10">
+                <span className="text-4xl font-black text-foreground">03</span>
+              </div>
+              <h3 className="mb-4 text-3xl font-black uppercase tracking-tight text-foreground">
+                Analyze Performance
+              </h3>
+              <p className="text-lg font-semibold text-foreground/70">
+                Actionable insights and metrics that drive revenue growth.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats Section */}
+      <section className="relative px-6 py-32">
+        <div className="mx-auto max-w-7xl">
+          <div className="brutal-glass grid gap-0 md:grid-cols-3">
+            {/* Stat 1 */}
+            <div className="border-b-3 border-r-0 border-foreground/10 p-12 text-center md:border-b-0 md:border-r-3">
+              <div className="mb-4 text-5xl font-black text-chimera-teal">100%</div>
+              <div className="text-sm font-bold uppercase tracking-wider text-foreground/60">
+                Team Efficiency
+              </div>
+            </div>
+
+            {/* Stat 2 */}
+            <div className="border-b-3 border-r-0 border-foreground/10 p-12 text-center md:border-b-0 md:border-r-3">
+              <div className="mb-4 text-5xl font-black text-chimera-purple">Real-Time</div>
+              <div className="text-sm font-bold uppercase tracking-wider text-foreground/60">
+                Data Updates
+              </div>
+            </div>
+
+            {/* Stat 3 */}
+            <div className="p-12 text-center">
+              <div className="mb-4 text-5xl font-black text-chimera-lime">0</div>
+              <div className="text-sm font-bold uppercase tracking-wider text-foreground/60">
+                Manual Tasks
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="relative border-t-3 border-foreground/10 px-6 py-10">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex items-center justify-center gap-4">
+            <div className="brutal-glass p-2">
+              <Image
+                src="/chimera-badge-logo.png"
+                alt="Chimera Logo"
+                width={40}
+                height={40}
+              />
+            </div>
+            <p className="text-sm font-bold uppercase tracking-wider text-foreground/60">
+              Chimera Lead Management System
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
