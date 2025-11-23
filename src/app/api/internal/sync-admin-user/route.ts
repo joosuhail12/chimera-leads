@@ -74,7 +74,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   }
 
-  const clerkUser = await clerkClient.users.getUser(clerkUserId);
+  const client = await clerkClient();
+  const clerkUser = await client.users.getUser(clerkUserId);
   const primaryEmail =
     clerkUser.emailAddresses.find(
       (e) => e.id === clerkUser.primaryEmailAddressId
