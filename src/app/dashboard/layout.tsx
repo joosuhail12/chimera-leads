@@ -2,7 +2,10 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { syncAdminUser } from "@/lib/services/admin-users";
-import { getAllowedClerkOrganizationId } from "@/lib/clerk/access";
+import {
+  getAllowedClerkOrganizationId,
+  userBelongsToAllowedOrganization,
+} from "@/lib/clerk/access";
 
 export default async function DashboardLayout({
   children,
@@ -16,15 +19,23 @@ export default async function DashboardLayout({
   }
 
   const allowedOrgId = getAllowedClerkOrganizationId();
-  if (!orgId || orgId !== allowedOrgId) {
+  let client: Awaited<ReturnType<typeof clerkClient>> | null = null;
+  let isAllowed = orgId === allowedOrgId;
+
+  if (!isAllowed) {
+    client = await clerkClient();
+    isAllowed = await userBelongsToAllowedOrganization(userId, client);
+  }
+
+  if (!isAllowed) {
     redirect("/unauthorized?reason=organization");
   }
 
-  const client = await clerkClient();
-  const user = await client.users.getUser(userId);
+  const resolvedClient = client ?? (await clerkClient());
+  const user = await resolvedClient.users.getUser(userId);
 
   await syncAdminUser(user, {
-    client,
+    client: resolvedClient,
     skipOrganizationValidation: true,
   });
 

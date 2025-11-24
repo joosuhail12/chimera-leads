@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { getAllowedClerkOrganizationId } from "@/lib/clerk/access";
+import {
+  getAllowedClerkOrganizationId,
+  userBelongsToAllowedOrganization,
+} from "@/lib/clerk/access";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -18,7 +21,13 @@ export default clerkMiddleware(async (auth, req) => {
     await auth.protect();
 
     const allowedOrgId = getAllowedClerkOrganizationId();
-    if (!session.orgId || session.orgId !== allowedOrgId) {
+    let hasAccess = session.orgId === allowedOrgId;
+
+    if (!hasAccess && session.userId) {
+      hasAccess = await userBelongsToAllowedOrganization(session.userId);
+    }
+
+    if (!hasAccess) {
       if (req.nextUrl.pathname.startsWith("/api")) {
         return NextResponse.json(
           { error: "Access restricted to authorized organization members." },
