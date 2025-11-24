@@ -92,6 +92,7 @@ Required environment variables (see `.env.example`):
 - `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous key
 - `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (server-side only)
+- Run `supabase db push` (or your usual migration workflow) after pulling to create/update tables such as `admin_users` and the new `user_profiles` table that stores Clerk profile metadata (names, avatars, phones, etc.).
 
 ## Setup Instructions
 

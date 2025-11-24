@@ -1,8 +1,10 @@
 import { clerkClient, type WebhookEvent } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { Webhook } from "svix";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { userBelongsToAllowedOrganization } from "@/lib/clerk/access";
+import { syncAdminUser } from "@/lib/services/admin-users";
 
 type ClerkUserPayload = WebhookEvent["data"] & {
   email_addresses?: { email_address: string }[];
@@ -56,22 +58,13 @@ export async function POST(request: Request) {
   const eventData = event.data as ClerkUserPayload;
 
   if (isDeleted) {
-    const { error } = await supabase
-      .from("admin_users")
-      .update({
-        is_active: false,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("clerk_user_id", clerkUserId);
-
-    if (error) {
-      console.error("Failed to deactivate admin user", error);
+    const deactivated = await deactivateUserRecords(supabase, clerkUserId);
+    if (!deactivated) {
       return NextResponse.json(
         { error: "Failed to deactivate user." },
         { status: 500 }
       );
     }
-
     return NextResponse.json({ success: true });
   }
 
@@ -83,18 +76,11 @@ export async function POST(request: Request) {
   );
 
   if (!isAllowed) {
-    const { error: deactivationError } = await supabase
-      .from("admin_users")
-      .update({
-        is_active: false,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("clerk_user_id", clerkUserId);
-
-    if (deactivationError) {
-      console.error(
-        "Failed to deactivate unauthorized admin user",
-        deactivationError
+    const deactivated = await deactivateUserRecords(supabase, clerkUserId);
+    if (!deactivated) {
+      return NextResponse.json(
+        { error: "Failed to deactivate unauthorized user." },
+        { status: 500 }
       );
     }
 
@@ -107,61 +93,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const primaryEmail =
-    clerkUser.emailAddresses.find(
-      (e) => e.id === clerkUser.primaryEmailAddressId
-    )?.emailAddress ||
-    clerkUser.emailAddresses[0]?.emailAddress ||
-    eventData.email_addresses?.[0]?.email_address;
-
-  if (!primaryEmail) {
-    return NextResponse.json(
-      { error: "User email is required." },
-      { status: 400 }
-    );
-  }
-
-  const displayName =
-    (clerkUser.fullName || "")
-      .trim()
-      .replace(/\s+/g, " ") ||
-    `${clerkUser.firstName ?? ""} ${clerkUser.lastName ?? ""}`.trim() ||
-    primaryEmail;
-
-  const role =
-    (clerkUser.publicMetadata?.role as string | undefined) ||
-    (clerkUser.privateMetadata?.role as string | undefined) ||
-    "member";
-  const team = clerkUser.publicMetadata?.team as string | undefined;
-
-  const metadata = {
-    publicMetadata: clerkUser.publicMetadata,
-    privateMetadata: clerkUser.privateMetadata,
-    unsafeMetadata: clerkUser.unsafeMetadata,
-  };
-
-  const { error } = await supabase
-    .from("admin_users")
-    .upsert(
-      {
-        clerk_user_id: clerkUser.id,
-        email: primaryEmail.toLowerCase(),
-        display_name: displayName,
-        role,
-        team,
-        is_active: true,
-        last_seen_at:
-          typeof clerkUser.lastActiveAt === "number"
-            ? new Date(clerkUser.lastActiveAt).toISOString()
-            : null,
-        metadata,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "clerk_user_id" }
-    );
-
-  if (error) {
-    console.error("Failed to upsert admin user", error);
+  try {
+    await syncAdminUser(clerkUser, {
+      client,
+      skipOrganizationValidation: true,
+      fallbackEmail: eventData.email_addresses?.[0]?.email_address,
+    });
+  } catch (error) {
+    console.error("Failed to sync admin user from webhook", error);
     return NextResponse.json(
       { error: "Failed to sync admin user." },
       { status: 500 }
@@ -169,4 +108,39 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ success: true });
+}
+
+async function deactivateUserRecords(
+  supabase: SupabaseClient,
+  clerkUserId: string
+) {
+  const timestamp = new Date().toISOString();
+
+  const [adminResult, profileResult] = await Promise.all([
+    supabase
+      .from("admin_users")
+      .update({
+        is_active: false,
+        updated_at: timestamp,
+      })
+      .eq("clerk_user_id", clerkUserId),
+    supabase
+      .from("user_profiles")
+      .update({
+        is_active: false,
+        updated_at: timestamp,
+      })
+      .eq("clerk_user_id", clerkUserId),
+  ]);
+
+  if (adminResult.error || profileResult.error) {
+    console.error(
+      "Failed to deactivate user records",
+      adminResult.error,
+      profileResult.error
+    );
+    return false;
+  }
+
+  return true;
 }
