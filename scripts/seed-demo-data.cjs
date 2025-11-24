@@ -1,10 +1,9 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
 
-const path = require("path");
-const { randomUUID, createHash } = require("crypto");
-const { config } = require("dotenv");
-const { createClient } = require("@supabase/supabase-js");
+import path from "node:path";
+import { createHash } from "node:crypto";
+import { config } from "dotenv";
+import { createClient } from "@supabase/supabase-js";
 
 config({ path: path.resolve(process.cwd(), ".env.local") });
 

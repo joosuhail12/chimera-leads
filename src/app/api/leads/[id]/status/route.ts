@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { LEAD_STATUSES, type LeadStatus } from "@/lib/constants/leads";
@@ -7,15 +7,18 @@ const ALLOWED_STATUSES = new Set(
   LEAD_STATUSES.map((status) => status.value)
 );
 
+export const dynamic = "force-dynamic";
+
 export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: { id: string } }
 ) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await context.params;
   const body = await request.json();
   const status = body.status as LeadStatus | undefined;
 
@@ -30,7 +33,7 @@ export async function PATCH(
   const { error } = await supabase
     .from("sales_leads")
     .update({ status })
-    .eq("id", params.id);
+    .eq("id", id);
 
   if (error) {
     console.error(error);
