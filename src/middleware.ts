@@ -5,6 +5,10 @@ import { userBelongsToAllowedOrganization } from "@/lib/clerk/access";
 
 const isPublicRoute = createRouteMatcher([
   "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/sign-out(.*)",
+  "/sso-callback(.*)",
   "/api/webhooks(.*)",
   "/unauthorized",
 ]);
