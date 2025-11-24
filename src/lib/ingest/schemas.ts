@@ -1,16 +1,6 @@
 import { z } from "zod";
 
-export const salesWebhookSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string().min(1),
-  email: z.string().email(),
-  company: z.string().min(1),
-  company_size: z.string().optional(),
-  industry: z.string().optional(),
-  timeline: z.string().optional(),
-  phone: z.string().optional(),
-  current_solution: z.string().optional(),
-  message: z.string().optional(),
+const attributionSchema = z.object({
   utm_source: z.string().optional(),
   utm_medium: z.string().optional(),
   utm_campaign: z.string().optional(),
@@ -19,6 +9,62 @@ export const salesWebhookSchema = z.object({
   referrer: z.string().optional(),
   landing_page: z.string().optional(),
 });
+
+export const salesWebhookSchema = z
+  .object({
+    event: z.string().optional(),
+    type: z.literal("contact_sales").optional(),
+    payload: z.object({
+      id: z.string().uuid(),
+      submission_id: z.string().optional(),
+      request_id: z.string().optional(),
+      name: z.string().min(1),
+      email: z.string().email(),
+      company: z.string().min(1),
+      company_size: z.string().optional(),
+      industry: z.string().optional(),
+      timeline: z.string().optional(),
+      phone: z.string().optional(),
+      message: z.string().optional(),
+      payload: z
+        .object({
+          currentSolution: z.string().optional(),
+          attribution: attributionSchema.optional(),
+        })
+        .passthrough()
+        .optional(),
+    }),
+  })
+  .transform((data) => ({
+    id: data.payload.id,
+    submission_id: data.payload.submission_id,
+    request_id: data.payload.request_id,
+    name: data.payload.name,
+    email: data.payload.email,
+    company: data.payload.company,
+    company_size: data.payload.company_size,
+    industry: data.payload.industry,
+    timeline: data.payload.timeline,
+    phone: data.payload.phone,
+    message: data.payload.message,
+    current_solution: data.payload.payload?.currentSolution,
+    utm_source:
+      data.payload.payload?.attribution?.utm_source ??
+      (data.payload.payload as Record<string, unknown>)?.utm_source,
+    utm_medium:
+      data.payload.payload?.attribution?.utm_medium ??
+      (data.payload.payload as Record<string, unknown>)?.utm_medium,
+    utm_campaign:
+      data.payload.payload?.attribution?.utm_campaign ??
+      (data.payload.payload as Record<string, unknown>)?.utm_campaign,
+    utm_term: data.payload.payload?.attribution?.utm_term,
+    utm_content: data.payload.payload?.attribution?.utm_content,
+    referrer: data.payload.payload?.attribution?.referrer,
+    landing_page:
+      data.payload.payload?.landing_page ??
+      data.payload.payload?.form_path,
+    raw_payload: data.payload,
+  }));
 
 export const startupWebhookSchema = z.object({
   id: z.string().uuid(),
