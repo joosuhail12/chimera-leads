@@ -53,7 +53,7 @@ type SalesFlat = z.infer<typeof baseSalesLeadSchema>;
 
 export const salesWebhookSchema = z
   .union([envelopeSalesSchema, baseSalesLeadSchema])
-  .transform((data): SalesWebhookPayload => {
+  .transform((data) => {
     const lead: SalesFlat =
       "payload" in data && data.payload && "id" in data.payload
         ? (data as SalesEnvelope).payload
