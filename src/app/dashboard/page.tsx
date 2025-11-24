@@ -1,7 +1,74 @@
 import { currentUser } from "@clerk/nextjs/server";
+import { getBaseUrl } from "@/lib/utils/base-url";
+
+type DashboardSummary = {
+  totals: {
+    leads: number;
+    openLeads: number;
+    thisWeekLeads: number;
+    bookings: number;
+    upcomingMeetings: number;
+    startupApplications: number;
+    newsletterSubscribers: number;
+  };
+  pipeline: Record<
+    "new" | "contacted" | "qualified" | "demo_scheduled" | "negotiation",
+    number
+  >;
+  recentActivity: Array<{
+    id: string;
+    title: string;
+    company: string | null;
+    updated_at: string;
+  }>;
+  nextMeeting: {
+    id: string;
+    event_title: string | null;
+    start_time: string | null;
+    lead_email: string | null;
+    meeting_url: string | null;
+  } | null;
+};
+
+async function fetchDashboardSummary(): Promise<DashboardSummary | null> {
+  const baseUrl = getBaseUrl();
+  try {
+    const response = await fetch(`${baseUrl}/api/dashboard/summary`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return (await response.json()) as DashboardSummary;
+  } catch (error) {
+    console.error("Failed to load dashboard summary", error);
+    return null;
+  }
+}
 
 export default async function DashboardPage() {
   const user = await currentUser();
+  const summary = await fetchDashboardSummary();
+
+  const totalLeads = summary?.totals.leads ?? 0;
+  const openLeads = summary?.totals.openLeads ?? 0;
+  const thisWeekLeads = summary?.totals.thisWeekLeads ?? 0;
+  const totalBookings = summary?.totals.bookings ?? 0;
+  const upcomingMeetings = summary?.totals.upcomingMeetings ?? 0;
+
+  const pipelineData =
+    summary?.pipeline ??
+    ({
+      new: 0,
+      contacted: 0,
+      qualified: 0,
+      demo_scheduled: 0,
+      negotiation: 0,
+    } as DashboardSummary["pipeline"]);
+
+  const recentActivity = summary?.recentActivity ?? [];
 
   return (
     <div className="space-y-6">
@@ -37,10 +104,14 @@ export default async function DashboardPage() {
           </div>
           <div className="mt-4">
             <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Leads</div>
-            <div className="mt-1 text-3xl font-semibold text-gray-900 dark:text-gray-100">1,247</div>
+            <div className="mt-1 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+              {totalLeads.toLocaleString()}
+            </div>
             <div className="mt-2 flex items-center gap-1 text-sm">
-              <span className="font-medium text-chimera-teal">+12%</span>
-              <span className="text-gray-500 dark:text-gray-400">from last month</span>
+              <span className="font-medium text-chimera-teal">
+                {thisWeekLeads} this week
+              </span>
+              <span className="text-gray-500 dark:text-gray-400">new records</span>
             </div>
           </div>
         </div>
@@ -55,10 +126,14 @@ export default async function DashboardPage() {
           </div>
           <div className="mt-4">
             <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Pipeline</div>
-            <div className="mt-1 text-3xl font-semibold text-gray-900 dark:text-gray-100">342</div>
+            <div className="mt-1 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+              {openLeads.toLocaleString()}
+            </div>
             <div className="mt-2 flex items-center gap-1 text-sm">
-              <span className="font-medium text-chimera-purple">+8%</span>
-              <span className="text-gray-500 dark:text-gray-400">from last month</span>
+              <span className="font-medium text-chimera-purple">
+                {pipelineData.negotiation} in negotiation
+              </span>
+              <span className="text-gray-500 dark:text-gray-400">currently open</span>
             </div>
           </div>
         </div>
@@ -72,11 +147,15 @@ export default async function DashboardPage() {
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Conversion Rate</div>
-            <div className="mt-1 text-3xl font-semibold text-gray-900 dark:text-gray-100">28%</div>
+            <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Startup Applications</div>
+            <div className="mt-1 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+              {summary?.totals.startupApplications.toLocaleString() ?? 0}
+            </div>
             <div className="mt-2 flex items-center gap-1 text-sm">
-              <span className="font-medium text-chimera-lime">+3%</span>
-              <span className="text-gray-500 dark:text-gray-400">from last month</span>
+              <span className="font-medium text-chimera-lime">
+                {summary?.totals.newsletterSubscribers.toLocaleString() ?? 0} audience
+              </span>
+              <span className="text-gray-500 dark:text-gray-400">newsletter subscribers</span>
             </div>
           </div>
         </div>
@@ -90,11 +169,15 @@ export default async function DashboardPage() {
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Revenue (MTD)</div>
-            <div className="mt-1 text-3xl font-semibold text-gray-900 dark:text-gray-100">$487K</div>
+            <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Meetings Scheduled</div>
+            <div className="mt-1 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+              {totalBookings.toLocaleString()}
+            </div>
             <div className="mt-2 flex items-center gap-1 text-sm">
-              <span className="font-medium bg-gradient-to-r from-chimera-teal to-chimera-purple bg-clip-text text-transparent">+22%</span>
-              <span className="text-gray-500 dark:text-gray-400">from last month</span>
+              <span className="font-medium bg-gradient-to-r from-chimera-teal to-chimera-purple bg-clip-text text-transparent">
+                {upcomingMeetings} upcoming
+              </span>
+              <span className="text-gray-500 dark:text-gray-400">in the calendar</span>
             </div>
           </div>
         </div>
@@ -112,24 +195,31 @@ export default async function DashboardPage() {
           </div>
           <div className="space-y-4">
             {[
-              { stage: "New Leads", count: 89, percentage: 26, color: "bg-chimera-teal" },
-              { stage: "Qualified", count: 124, percentage: 36, color: "bg-chimera-purple" },
-              { stage: "Proposal", count: 78, percentage: 23, color: "bg-chimera-lime" },
-              { stage: "Negotiation", count: 51, percentage: 15, color: "bg-gray-400" },
-            ].map((item) => (
-              <div key={item.stage}>
+              { stage: "New Leads", value: pipelineData.new, color: "bg-chimera-teal" },
+              { stage: "Contacted", value: pipelineData.contacted, color: "bg-chimera-purple" },
+              { stage: "Qualified", value: pipelineData.qualified, color: "bg-chimera-lime" },
+              { stage: "Demo Scheduled", value: pipelineData.demo_scheduled, color: "bg-chimera-purple/60" },
+              { stage: "Negotiation", value: pipelineData.negotiation, color: "bg-gray-400" },
+            ].map((item) => {
+              const percentage =
+                totalLeads > 0 ? Math.round((item.value / totalLeads) * 100) : 0;
+              return (
+                <div key={item.stage}>
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.stage}</span>
-                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{item.count}</span>
+                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    {item.value}
+                  </span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
                   <div
-                    className={`${item.color} h-full rounded-full transition-all duration-300`}
-                    style={{ width: `${item.percentage}%` }}
+                      className={`${item.color} h-full rounded-full transition-all duration-300`}
+                      style={{ width: `${percentage}%` }}
                   />
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -142,22 +232,32 @@ export default async function DashboardPage() {
             </button>
           </div>
           <div className="space-y-4">
-            {[
-              { action: "New lead added", company: "TechCorp Inc.", time: "5 min ago" },
-              { action: "Lead converted", company: "DataSys Ltd.", time: "23 min ago" },
-              { action: "Proposal sent", company: "CloudNet", time: "1 hour ago" },
-              { action: "Meeting scheduled", company: "InnovateLabs", time: "2 hours ago" },
-              { action: "Lead updated", company: "SmartFlow", time: "3 hours ago" },
-            ].map((activity, index) => (
+            {(recentActivity.length ? recentActivity : [
+              {
+                id: "placeholder",
+                title: "No recent activity",
+                company: "Get started by ingesting webhooks.",
+                updated_at: new Date().toISOString(),
+              },
+            ]).map((activity) => (
               <div
-                key={index}
+                key={activity.id}
                 className="flex items-start gap-3 border-l-2 border-gray-200 pl-4 dark:border-gray-800"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{activity.action}</div>
-                  <div className="mt-0.5 text-sm text-gray-600 dark:text-gray-400 truncate">{activity.company}</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                    {activity.title}
+                  </div>
+                  <div className="mt-0.5 text-sm text-gray-600 dark:text-gray-400 truncate">
+                    {activity.company ?? "—"}
+                  </div>
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{activity.time}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                  {new Date(activity.updated_at).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </div>
               </div>
             ))}
           </div>
