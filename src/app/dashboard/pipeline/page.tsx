@@ -1,5 +1,5 @@
 import { LeadsPipelineBoard } from "@/components/leads/pipeline-board";
-import { resolveBaseUrl } from "@/lib/utils/resolve-base-url";
+import { fetchFromApi } from "@/lib/utils/fetch-from-api";
 import { LEAD_STATUSES, type LeadStatus } from "@/lib/constants/leads";
 
 type PipelineResponse = {
@@ -17,12 +17,8 @@ type PipelineResponse = {
 };
 
 async function fetchPipeline(): Promise<PipelineResponse | null> {
-  const baseUrl = await resolveBaseUrl();
-
   try {
-    const response = await fetch(`${baseUrl}/api/leads/pipeline`, {
-      cache: "no-store",
-    });
+    const response = await fetchFromApi("/api/leads/pipeline");
 
     if (!response.ok) {
       return null;

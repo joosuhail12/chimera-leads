@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
 import { AssignLeadButton } from "@/components/leads/assign-lead-button";
 import { LEAD_STATUSES } from "@/lib/constants/leads";
-import { resolveBaseUrl } from "@/lib/utils/resolve-base-url";
+import { fetchFromApi } from "@/lib/utils/fetch-from-api";
 
 export const dynamic = "force-dynamic";
 
@@ -32,12 +32,8 @@ type BookingRecord = {
 };
 
 async function fetchLeadDetail(id: string) {
-  const baseUrl = await resolveBaseUrl();
-
   try {
-    const response = await fetch(`${baseUrl}/api/leads/${id}`, {
-      cache: "no-store",
-    });
+    const response = await fetchFromApi(`/api/leads/${id}`);
 
     if (response.status === 404) {
       return null;

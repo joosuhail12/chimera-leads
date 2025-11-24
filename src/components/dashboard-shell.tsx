@@ -3,9 +3,11 @@
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { KnockInbox } from "@/components/notifications/knock-inbox";
 
 interface DashboardShellProps {
   children: React.ReactNode;
+  userId?: string;
 }
 
 const navItems = [
@@ -49,9 +51,29 @@ const navItems = [
       </svg>
     ),
   },
+  {
+    label: "Website Data",
+    description: "All ingested form submissions",
+    href: "/dashboard/website-data",
+    icon: (
+      <svg
+        className="h-4 w-4"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M3 5h18M3 12h18M3 19h18"
+        />
+      </svg>
+    ),
+  },
 ];
 
-export function DashboardShell({ children }: DashboardShellProps) {
+export function DashboardShell({ children, userId }: DashboardShellProps) {
   const pathname = usePathname();
 
   return (
@@ -152,6 +174,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
               >
                 Share feedback
               </Link>
+              {userId ? <KnockInbox userId={userId} /> : null}
               <UserButton
                 appearance={{
                   elements: {

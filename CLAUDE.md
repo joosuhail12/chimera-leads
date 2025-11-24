@@ -94,6 +94,10 @@ Required environment variables (see `.env.example`):
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous key
 - `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (server-side only)
 - Run `supabase db push` (or your usual migration workflow) after pulling to create/update tables such as `admin_users` and the new `user_profiles` table that stores Clerk profile metadata (names, avatars, phones, etc.).
+- `KNOCK_API_KEY` - Knock secret API key used for server actions
+- `NEXT_PUBLIC_KNOCK_PUBLIC_API_KEY` - Knock public API key used in the client inbox
+- `NEXT_PUBLIC_KNOCK_FEED_CHANNEL_ID` - Knock in-app feed channel id
+- (Optional) `KNOCK_TEST_WORKFLOW_ID` - Override for the workflow slug triggered by the sample button
 - Seed demo data anytime with `npm run seed` (uses the Supabase service role key, so only run locally).
 
 ## Setup Instructions
