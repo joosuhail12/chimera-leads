@@ -14,7 +14,8 @@ export default async function DashboardLayout({
     redirect("/sign-in");
   }
 
-  const user = await clerkClient.users.getUser(userId);
+  const client = await clerkClient();
+  const user = await client.users.getUser(userId);
   await syncAdminUser(user);
 
   return <DashboardShell>{children}</DashboardShell>;
