@@ -4,9 +4,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
 export async function POST(
   _request: NextRequest,
-  context: { params: { id: string } }
+  context: RouteContext
 ) {
   const { userId } = await auth();
   if (!userId) {
