@@ -55,7 +55,13 @@ export const salesWebhookSchema = z
   .union([envelopeSalesSchema, baseSalesLeadSchema])
   .transform((data) => {
     const lead: SalesFlat =
-      "payload" in data && data.payload && "id" in data.payload
+      typeof data === "object" &&
+      data !== null &&
+      "payload" in data &&
+      data.payload &&
+      typeof (data as Record<string, unknown>).payload === "object" &&
+      (data as Record<string, unknown>).payload !== null &&
+      "id" in (data as { payload: Record<string, unknown> }).payload
         ? (data as SalesEnvelope).payload
         : (data as SalesFlat);
 
