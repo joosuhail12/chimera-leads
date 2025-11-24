@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { updateSession } from "@/lib/supabase/middleware";
-import { userBelongsToAllowedOrganization } from "@/lib/clerk/access";
+import { getAllowedClerkOrganizationId } from "@/lib/clerk/access";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -14,31 +13,27 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  // Protect all routes except public ones
   if (!isPublicRoute(req)) {
+    const session = await auth();
     await auth.protect();
 
-    const { userId } = await auth();
-    if (userId) {
-      const isAllowed = await userBelongsToAllowedOrganization(userId);
-      if (!isAllowed) {
-        if (req.nextUrl.pathname.startsWith("/api")) {
-          return NextResponse.json(
-            { error: "Access restricted to authorized organization members." },
-            { status: 403 }
-          );
-        }
-
-        const unauthorizedUrl = new URL("/unauthorized", req.url);
-        unauthorizedUrl.searchParams.set("reason", "organization");
-        unauthorizedUrl.searchParams.set("redirectTo", req.nextUrl.pathname);
-        return NextResponse.redirect(unauthorizedUrl);
+    const allowedOrgId = getAllowedClerkOrganizationId();
+    if (!session.orgId || session.orgId !== allowedOrgId) {
+      if (req.nextUrl.pathname.startsWith("/api")) {
+        return NextResponse.json(
+          { error: "Access restricted to authorized organization members." },
+          { status: 403 }
+        );
       }
+
+      const unauthorizedUrl = new URL("/unauthorized", req.url);
+      unauthorizedUrl.searchParams.set("reason", "organization");
+      unauthorizedUrl.searchParams.set("redirectTo", req.nextUrl.pathname);
+      return NextResponse.redirect(unauthorizedUrl);
     }
   }
 
-  // Update Supabase session
-  return updateSession(req);
+  return NextResponse.next();
 });
 
 export const config = {

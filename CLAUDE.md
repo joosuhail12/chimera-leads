@@ -75,6 +75,7 @@ This is a Next.js 16.0.3 application using React 19.2.0, TypeScript, and Tailwin
 - Client components must use `"use client"` directive
 - Image optimization via `next/image` component
 - Metadata exported from page/layout files for SEO
+- Clerk is the sole auth/session source; middleware checks `auth().orgId` against `CLERK_ALLOWED_ORG_ID` for access control.
 
 ## Environment Variables
 
