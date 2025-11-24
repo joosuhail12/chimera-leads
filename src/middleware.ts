@@ -14,7 +14,7 @@ export default clerkMiddleware(async (auth, req) => {
   if (!isPublicRoute(req)) {
     await auth.protect();
 
-    const { userId } = auth();
+    const { userId } = await auth();
     if (userId) {
       const isAllowed = await userBelongsToAllowedOrganization(userId);
       if (!isAllowed) {
