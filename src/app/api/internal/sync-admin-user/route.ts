@@ -1,7 +1,8 @@
-import { createAdminClient } from "@/lib/supabase/admin";
 import { clerkClient, type WebhookEvent } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { Webhook } from "svix";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { userBelongsToAllowedOrganization } from "@/lib/clerk/access";
 
 type ClerkUserPayload = WebhookEvent["data"] & {
   email_addresses?: { email_address: string }[];
@@ -76,6 +77,36 @@ export async function POST(request: Request) {
 
   const client = await clerkClient();
   const clerkUser = await client.users.getUser(clerkUserId);
+  const isAllowed = await userBelongsToAllowedOrganization(
+    clerkUserId,
+    client
+  );
+
+  if (!isAllowed) {
+    const { error: deactivationError } = await supabase
+      .from("admin_users")
+      .update({
+        is_active: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("clerk_user_id", clerkUserId);
+
+    if (deactivationError) {
+      console.error(
+        "Failed to deactivate unauthorized admin user",
+        deactivationError
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        skipped: "User does not belong to the allowed organization.",
+      },
+      { status: 200 }
+    );
+  }
+
   const primaryEmail =
     clerkUser.emailAddresses.find(
       (e) => e.id === clerkUser.primaryEmailAddressId

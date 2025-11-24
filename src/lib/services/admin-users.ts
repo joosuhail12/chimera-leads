@@ -1,4 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { userBelongsToAllowedOrganization } from "@/lib/clerk/access";
+import type { ClerkClient } from "@clerk/backend";
 import type { User } from "@clerk/nextjs/server";
 
 function getPrimaryEmail(user: User): string | null {
@@ -13,10 +15,29 @@ function getPrimaryEmail(user: User): string | null {
   );
 }
 
-export async function syncAdminUser(user: User) {
+type SyncAdminUserOptions = {
+  client?: ClerkClient;
+  skipOrganizationValidation?: boolean;
+};
+
+export async function syncAdminUser(
+  user: User,
+  options?: SyncAdminUserOptions
+) {
   const email = getPrimaryEmail(user);
   if (!email) {
     throw new Error("Clerk user is missing an email address.");
+  }
+
+  if (!options?.skipOrganizationValidation) {
+    const isAllowed = await userBelongsToAllowedOrganization(
+      user.id,
+      options?.client
+    );
+
+    if (!isAllowed) {
+      return false;
+    }
   }
 
   const supabase = createAdminClient();
@@ -60,4 +81,6 @@ export async function syncAdminUser(user: User) {
   if (error) {
     throw new Error(`Failed to sync admin user record: ${error.message}`);
   }
+
+  return true;
 }

@@ -83,6 +83,8 @@ Required environment variables (see `.env.example`):
 ### Clerk
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` - Clerk publishable key
 - `CLERK_SECRET_KEY` - Clerk secret key
+- `CLERK_WEBHOOK_SECRET` - Secret used to verify Clerk webhooks
+- `CLERK_ALLOWED_ORG_ID` - Only members of this organization can access the app
 - `NEXT_PUBLIC_CLERK_SIGN_IN_URL` - Sign in page URL (default: `/sign-in`)
 - `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL` - Redirect after sign in (default: `/dashboard`)
 
