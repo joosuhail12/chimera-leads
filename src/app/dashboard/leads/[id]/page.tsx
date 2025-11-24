@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { AssignLeadButton } from "@/components/leads/assign-lead-button";
 import { LEAD_STATUSES } from "@/lib/constants/leads";
+import { resolveBaseUrl } from "@/lib/utils/resolve-base-url";
 
 export const dynamic = "force-dynamic";
 
@@ -28,66 +28,79 @@ type BookingRecord = {
   event_title: string | null;
   start_time: string | null;
   meeting_url: string | null;
+  status: string | null;
 };
+
+async function fetchLeadDetail(id: string) {
+  const baseUrl = resolveBaseUrl();
+
+  try {
+    const response = await fetch(`${baseUrl}/api/leads/${id}`, {
+      cache: "no-store",
+    });
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error("Failed to load lead details");
+    }
+
+    return (await response.json()) as {
+      lead: LeadRecord;
+      bookings: BookingRecord[];
+    };
+  } catch (error) {
+    console.error("Failed to load lead detail", error);
+    return null;
+  }
+}
 
 export default async function LeadDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const [user, supabase] = await Promise.all([
+  const { id } = await params;
+  const [user, result] = await Promise.all([
     currentUser(),
-    Promise.resolve(createAdminClient()),
+    fetchLeadDetail(id),
   ]);
 
-  const [{ data: lead, error }, { data: bookings }] = await Promise.all([
-    supabase
-      .from("sales_leads")
-      .select(
-        "id, name, email, phone, company, status, message, current_solution, timeline, created_at, updated_at, assigned_to, admin_notes, raw_payload"
-      )
-      .eq("id", params.id)
-      .single(),
-    supabase
-      .from("bookings")
-      .select("id, event_title, start_time, meeting_url")
-      .eq("lead_id", params.id)
-      .order("start_time", { ascending: true }),
-  ]);
-
-  if (error || !lead) {
+  if (!result) {
     notFound();
   }
 
-  const leadRecord = lead as LeadRecord;
-  const bookingRecords = (bookings ?? []) as BookingRecord[];
+  const { lead, bookings } = result;
+  const bookingRecords = bookings ?? [];
 
-  const rawPayload = leadRecord.raw_payload ?? {};
+  const rawPayload = lead.raw_payload ?? {};
   const linkedin =
     (rawPayload.linkedin as string | undefined) ??
     (rawPayload.LinkedIn as string | undefined) ??
     (rawPayload.linkedin_url as string | undefined) ??
     null;
-  const statusMeta = LEAD_STATUSES.find((s) => s.value === leadRecord.status);
+  const statusMeta = LEAD_STATUSES.find((s) => s.value === lead.status);
 
   const journeyEvents = [
     {
       title: "Signed up",
-      timestamp: leadRecord.created_at,
-      description: `Lead created for ${leadRecord.company}`,
+      timestamp: lead.created_at,
+      description: `Lead created for ${lead.company}`,
     },
     ...bookingRecords.map((booking) => ({
       title: booking.event_title ?? "Meeting scheduled",
       timestamp: booking.start_time,
       description: booking.meeting_url
         ? `Meeting link: ${booking.meeting_url}`
-        : "Added to calendar",
+        : booking.status ?? "Calendar entry",
     })),
-    leadRecord.admin_notes
+    lead.admin_notes
       ? {
           title: "Admin notes updated",
-          timestamp: leadRecord.updated_at,
-          description: leadRecord.admin_notes,
+          timestamp: lead.updated_at,
+          description: lead.admin_notes,
         }
       : null,
   ].filter(Boolean) as Array<{
@@ -96,8 +109,7 @@ export default async function LeadDetailPage({
     description: string | null;
   }>;
 
-  const isAssignedToCurrentUser =
-    !!user?.id && leadRecord.assigned_to === user.id;
+  const isAssignedToCurrentUser = !!user?.id && lead.assigned_to === user.id;
 
   return (
     <div className="space-y-6">
@@ -108,20 +120,20 @@ export default async function LeadDetailPage({
               Lead detail
             </p>
             <h1 className="text-3xl font-semibold text-gray-900 dark:text-gray-50">
-              {leadRecord.name}
+              {lead.name}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {leadRecord.company}
+              {lead.company}
             </p>
           </div>
           <div className="flex items-center gap-3">
             <span className="rounded-full border border-gray-200 px-4 py-1 text-sm font-semibold text-gray-600 dark:border-gray-800 dark:text-gray-300">
-              {statusMeta?.label ?? leadRecord.status}
+              {statusMeta?.label ?? lead.status}
             </span>
             <AssignLeadButton
-              leadId={leadRecord.id}
+              leadId={lead.id}
               isAssignedToCurrentUser={isAssignedToCurrentUser}
-              assignedToLabel={leadRecord.assigned_to}
+              assignedToLabel={lead.assigned_to}
             />
           </div>
         </div>
@@ -136,12 +148,12 @@ export default async function LeadDetailPage({
           <dl className="mt-4 space-y-3 text-sm">
             <div>
               <dt className="text-gray-500 dark:text-gray-400">Email</dt>
-              <dd className="font-medium">{leadRecord.email}</dd>
+              <dd className="font-medium">{lead.email}</dd>
             </div>
-            {leadRecord.phone ? (
+            {lead.phone ? (
               <div>
                 <dt className="text-gray-500 dark:text-gray-400">Phone</dt>
-                <dd className="font-medium">{leadRecord.phone}</dd>
+                <dd className="font-medium">{lead.phone}</dd>
               </div>
             ) : null}
             {linkedin ? (
@@ -173,7 +185,7 @@ export default async function LeadDetailPage({
                 Current solution
               </p>
               <p className="mt-1 font-medium text-gray-900 dark:text-gray-100">
-                {leadRecord.current_solution ?? "Not provided"}
+                {lead.current_solution ?? "Not provided"}
               </p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm dark:border-gray-800 dark:bg-gray-900/60">
@@ -181,12 +193,12 @@ export default async function LeadDetailPage({
                 Buying timeline
               </p>
               <p className="mt-1 font-medium text-gray-900 dark:text-gray-100">
-                {leadRecord.timeline ?? "Not specified"}
+                {lead.timeline ?? "Not specified"}
               </p>
             </div>
           </div>
           <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm leading-relaxed text-gray-700 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-300">
-            {leadRecord.message ?? "This lead did not leave a message."}
+            {lead.message ?? "This lead did not leave a message."}
           </div>
         </section>
       </div>

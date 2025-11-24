@@ -1,5 +1,5 @@
 import { currentUser } from "@clerk/nextjs/server";
-import { getBaseUrl } from "@/lib/utils/base-url";
+import { resolveBaseUrl } from "@/lib/utils/resolve-base-url";
 
 type DashboardSummary = {
   totals: {
@@ -31,7 +31,7 @@ type DashboardSummary = {
 };
 
 async function fetchDashboardSummary(): Promise<DashboardSummary | null> {
-  const baseUrl = getBaseUrl();
+  const baseUrl = resolveBaseUrl();
   try {
     const response = await fetch(`${baseUrl}/api/dashboard/summary`, {
       cache: "no-store",

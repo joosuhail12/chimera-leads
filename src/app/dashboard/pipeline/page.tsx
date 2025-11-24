@@ -1,36 +1,52 @@
-import { createAdminClient } from "@/lib/supabase/admin";
 import { LeadsPipelineBoard } from "@/components/leads/pipeline-board";
+import { resolveBaseUrl } from "@/lib/utils/resolve-base-url";
 import { LEAD_STATUSES, type LeadStatus } from "@/lib/constants/leads";
 
-type LeadForPipeline = {
-  id: string;
-  name: string;
-  company: string | null;
-  email: string;
-  status: LeadStatus;
-  updated_at: string | null;
+type PipelineResponse = {
+  columns: Record<
+    LeadStatus,
+    Array<{
+      id: string;
+      name: string;
+      company: string | null;
+      email: string;
+      status: LeadStatus;
+      updated_at: string | null;
+    }>
+  >;
 };
 
-export default async function PipelinePage() {
-  const supabase = createAdminClient();
-  const { data } = await supabase
-    .from("sales_leads")
-    .select("id, name, company, email, status, updated_at")
-    .order("created_at", { ascending: true });
+async function fetchPipeline(): Promise<PipelineResponse | null> {
+  const baseUrl = resolveBaseUrl();
 
-  const columns = LEAD_STATUSES.reduce((acc, status) => {
-    acc[status.value] = [];
-    return acc;
-  }, {} as Record<LeadStatus, LeadForPipeline[]>);
+  try {
+    const response = await fetch(`${baseUrl}/api/leads/pipeline`, {
+      cache: "no-store",
+    });
 
-  data?.forEach((lead) => {
-    const status = (lead.status as LeadStatus) ?? "new";
-    if (!columns[status]) {
-      columns["new"].push(lead as LeadForPipeline);
-    } else {
-      columns[status].push(lead as LeadForPipeline);
+    if (!response.ok) {
+      return null;
     }
-  });
+
+    return (await response.json()) as PipelineResponse;
+  } catch (error) {
+    console.error("Failed to load pipeline data", error);
+    return null;
+  }
+}
+
+export default async function PipelinePage() {
+  const pipeline = await fetchPipeline();
+
+  const columns =
+    pipeline?.columns ??
+    LEAD_STATUSES.reduce(
+      (acc, status) => ({
+        ...acc,
+        [status.value]: [],
+      }),
+      {} as PipelineResponse["columns"]
+    );
 
   return (
     <div className="space-y-6">
@@ -43,8 +59,8 @@ export default async function PipelinePage() {
             Drag and drop leads between stages
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Every drop automatically updates the underlying Supabase record, so your
-            team stays in sync.
+            Every drop automatically updates the underlying Supabase record, so
+            your team stays in sync.
           </p>
         </div>
       </header>
