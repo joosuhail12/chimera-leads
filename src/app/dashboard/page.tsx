@@ -31,7 +31,7 @@ type DashboardSummary = {
 };
 
 async function fetchDashboardSummary(): Promise<DashboardSummary | null> {
-  const baseUrl = resolveBaseUrl();
+  const baseUrl = await resolveBaseUrl();
   try {
     const response = await fetch(`${baseUrl}/api/dashboard/summary`, {
       cache: "no-store",

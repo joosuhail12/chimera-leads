@@ -32,7 +32,7 @@ type BookingRecord = {
 };
 
 async function fetchLeadDetail(id: string) {
-  const baseUrl = resolveBaseUrl();
+  const baseUrl = await resolveBaseUrl();
 
   try {
     const response = await fetch(`${baseUrl}/api/leads/${id}`, {

@@ -17,7 +17,7 @@ type PipelineResponse = {
 };
 
 async function fetchPipeline(): Promise<PipelineResponse | null> {
-  const baseUrl = resolveBaseUrl();
+  const baseUrl = await resolveBaseUrl();
 
   try {
     const response = await fetch(`${baseUrl}/api/leads/pipeline`, {
