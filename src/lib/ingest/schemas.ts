@@ -1,70 +1,101 @@
 import { z } from "zod";
 
 const attributionSchema = z.object({
-  utm_source: z.string().optional(),
-  utm_medium: z.string().optional(),
-  utm_campaign: z.string().optional(),
-  utm_term: z.string().optional(),
-  utm_content: z.string().optional(),
-  referrer: z.string().optional(),
-  landing_page: z.string().optional(),
+  utm_source: z.string().optional().nullable(),
+  utm_medium: z.string().optional().nullable(),
+  utm_campaign: z.string().optional().nullable(),
+  utm_term: z.string().optional().nullable(),
+  utm_content: z.string().optional().nullable(),
+  referrer: z.string().optional().nullable(),
+  landing_page: z.string().optional().nullable(),
 });
 
+const baseSalesLeadSchema = z.object({
+  id: z.string().uuid(),
+  submission_id: z.string().optional(),
+  request_id: z.string().optional(),
+  name: z.string().min(1),
+  email: z.string().email(),
+  company: z.string().min(1),
+  company_size: z.string().optional().nullable(),
+  industry: z.string().optional().nullable(),
+  timeline: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  message: z.string().optional().nullable(),
+  current_solution: z.string().optional().nullable(),
+  utm_source: z.string().optional().nullable(),
+  utm_medium: z.string().optional().nullable(),
+  utm_campaign: z.string().optional().nullable(),
+  utm_term: z.string().optional().nullable(),
+  utm_content: z.string().optional().nullable(),
+  referrer: z.string().optional().nullable(),
+  landing_page: z.string().optional().nullable(),
+  form_path: z.string().optional().nullable(),
+  payload: z.unknown().optional(),
+});
+
+const envelopeSalesSchema = z.object({
+  event: z.string().optional(),
+  type: z.literal("contact_sales").optional(),
+  payload: baseSalesLeadSchema.extend({
+    payload: z
+      .object({
+        currentSolution: z.string().optional(),
+        attribution: attributionSchema.optional(),
+      })
+      .passthrough()
+      .optional(),
+  }),
+});
+
+type SalesEnvelope = z.infer<typeof envelopeSalesSchema>;
+type SalesFlat = z.infer<typeof baseSalesLeadSchema>;
+
 export const salesWebhookSchema = z
-  .object({
-    event: z.string().optional(),
-    type: z.literal("contact_sales").optional(),
-    payload: z.object({
-      id: z.string().uuid(),
-      submission_id: z.string().optional(),
-      request_id: z.string().optional(),
-      name: z.string().min(1),
-      email: z.string().email(),
-      company: z.string().min(1),
-      company_size: z.string().optional(),
-      industry: z.string().optional(),
-      timeline: z.string().optional(),
-      phone: z.string().optional(),
-      message: z.string().optional(),
-      payload: z
-        .object({
-          currentSolution: z.string().optional(),
-          attribution: attributionSchema.optional(),
-        })
-        .passthrough()
-        .optional(),
-    }),
-  })
-  .transform((data) => ({
-    id: data.payload.id,
-    submission_id: data.payload.submission_id,
-    request_id: data.payload.request_id,
-    name: data.payload.name,
-    email: data.payload.email,
-    company: data.payload.company,
-    company_size: data.payload.company_size,
-    industry: data.payload.industry,
-    timeline: data.payload.timeline,
-    phone: data.payload.phone,
-    message: data.payload.message,
-    current_solution: data.payload.payload?.currentSolution,
-    utm_source:
-      data.payload.payload?.attribution?.utm_source ??
-      (data.payload.payload as Record<string, unknown>)?.utm_source,
-    utm_medium:
-      data.payload.payload?.attribution?.utm_medium ??
-      (data.payload.payload as Record<string, unknown>)?.utm_medium,
-    utm_campaign:
-      data.payload.payload?.attribution?.utm_campaign ??
-      (data.payload.payload as Record<string, unknown>)?.utm_campaign,
-    utm_term: data.payload.payload?.attribution?.utm_term,
-    utm_content: data.payload.payload?.attribution?.utm_content,
-    referrer: data.payload.payload?.attribution?.referrer,
-    landing_page:
-      data.payload.payload?.landing_page ??
-      data.payload.payload?.form_path,
-    raw_payload: data.payload,
-  }));
+  .union([envelopeSalesSchema, baseSalesLeadSchema])
+  .transform((data): SalesWebhookPayload => {
+    const lead: SalesFlat =
+      "payload" in data && data.payload && "id" in data.payload
+        ? (data as SalesEnvelope).payload
+        : (data as SalesFlat);
+
+    const nestedPayload =
+      typeof lead.payload === "object" && lead.payload !== null
+        ? (lead.payload as Record<string, unknown>)
+        : undefined;
+    const nestedAttribution = nestedPayload?.attribution as
+      | z.infer<typeof attributionSchema>
+      | undefined;
+
+    return {
+      id: lead.id,
+      submission_id: lead.submission_id,
+      request_id: lead.request_id,
+      name: lead.name,
+      email: lead.email,
+      company: lead.company,
+      company_size: lead.company_size ?? undefined,
+      industry: lead.industry ?? undefined,
+      timeline: lead.timeline ?? undefined,
+      phone: lead.phone ?? undefined,
+      message: lead.message ?? undefined,
+      current_solution:
+        lead.current_solution ??
+        (nestedPayload?.currentSolution as string | undefined),
+      utm_source: lead.utm_source ?? nestedAttribution?.utm_source ?? (nestedPayload?.utm_source as string | undefined),
+      utm_medium: lead.utm_medium ?? nestedAttribution?.utm_medium ?? (nestedPayload?.utm_medium as string | undefined),
+      utm_campaign: lead.utm_campaign ?? nestedAttribution?.utm_campaign ?? (nestedPayload?.utm_campaign as string | undefined),
+      utm_term: lead.utm_term ?? nestedAttribution?.utm_term ?? (nestedPayload?.utm_term as string | undefined),
+      utm_content: lead.utm_content ?? nestedAttribution?.utm_content ?? (nestedPayload?.utm_content as string | undefined),
+      referrer: lead.referrer ?? nestedAttribution?.referrer,
+      landing_page:
+        lead.landing_page ??
+        nestedAttribution?.landing_page ??
+        (nestedPayload?.landing_page as string | undefined) ??
+        (lead.form_path ?? undefined),
+      raw_payload: (data as unknown) as Record<string, unknown>,
+    };
+  });
 
 export const startupWebhookSchema = z.object({
   id: z.string().uuid(),
