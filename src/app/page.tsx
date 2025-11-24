@@ -1,12 +1,28 @@
 import Image from "next/image";
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
+import { isClerkAPIResponseError } from "@clerk/nextjs/errors";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const { userId } = await auth();
+  let userId: string | null = null;
+  try {
+    ({ userId } = await auth());
+  } catch (error) {
+    if (
+      isClerkAPIResponseError(error) &&
+      error.status === 429
+    ) {
+      console.warn(
+        "Clerk rate limit hit while checking auth on the landing page. Rendering page without redirect."
+      );
+      userId = null;
+    } else {
+      throw error;
+    }
+  }
 
   // Redirect authenticated users to dashboard
   if (userId) {
