@@ -84,26 +84,6 @@ const navItems = [
     ),
   },
   {
-    label: "Marketing",
-    description: "Subscriber lists & campaigns",
-    href: "/dashboard/marketing-lists",
-    icon: (
-      <svg
-        className="h-4 w-4"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6m16-6v6m0-6a2 2 0 00-2-2h-3.172a2 2 0 01-1.414-.586l-1.828-1.828A2 2 0 009.172 2H6a2 2 0 00-2 2v6h16z"
-        />
-      </svg>
-    ),
-  },
-  {
     label: "Custom Fields",
     description: "Extend lead & audience records",
     href: "/dashboard/custom-fields",
