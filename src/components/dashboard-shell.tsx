@@ -8,7 +8,6 @@ import { usePathname } from "next/navigation";
 
 interface DashboardShellProps {
   children: React.ReactNode;
-  userId?: string;
 }
 
 const navItems = [
@@ -66,12 +65,15 @@ const navItems = [
   },
 ];
 
-const KnockInboxClient = dynamic(
-  () => import("@/components/notifications/knock-inbox").then((mod) => mod.KnockInbox),
+const NotificationBellClient = dynamic(
+  () =>
+    import("@/components/notifications/notification-bell").then(
+      (mod) => mod.NotificationBell
+    ),
   { ssr: false }
 );
 
-export function DashboardShell({ children, userId }: DashboardShellProps) {
+export function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -220,7 +222,7 @@ export function DashboardShell({ children, userId }: DashboardShellProps) {
                 >
                   Share feedback
                 </Link>
-                {userId ? <KnockInboxClient userId={userId} /> : null}
+                <NotificationBellClient />
                 <OrganizationSwitcher
                   hidePersonal
                   appearance={{

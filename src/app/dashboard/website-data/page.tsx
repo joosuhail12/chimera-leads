@@ -1,6 +1,6 @@
 import { fetchFromApi } from "@/lib/utils/fetch-from-api";
 import { WebsiteDataTabs } from "@/components/website-data/tabs";
-import { KnockWorkflowTrigger } from "@/components/notifications/workflow-trigger";
+import { SnsNotificationTrigger } from "@/components/notifications/sns-notification-trigger";
 
 type WebsiteData = {
   leads: Array<{
@@ -70,10 +70,11 @@ export default async function WebsiteDataPage() {
   const bookings = data?.bookings ?? [];
   const audience = data?.audience ?? [];
   const startups = data?.startups ?? [];
-  const knockConfigured =
-    !!process.env.KNOCK_API_KEY &&
-    !!process.env.NEXT_PUBLIC_KNOCK_PUBLIC_API_KEY &&
-    !!process.env.NEXT_PUBLIC_KNOCK_FEED_CHANNEL_ID;
+  const snsConfigured =
+    !!process.env.AWS_REGION &&
+    !!process.env.AWS_SNS_TOPIC_ARN &&
+    !!process.env.AWS_ACCESS_KEY_ID &&
+    !!process.env.AWS_SECRET_ACCESS_KEY;
 
   return (
     <div className="space-y-6">
@@ -92,7 +93,7 @@ export default async function WebsiteDataPage() {
         </div>
       </header>
 
-      {knockConfigured ? <KnockWorkflowTrigger /> : null}
+      {snsConfigured ? <SnsNotificationTrigger /> : null}
 
       <WebsiteDataTabs
         leads={leads}

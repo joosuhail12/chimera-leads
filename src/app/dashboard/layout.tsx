@@ -39,5 +39,5 @@ export default async function DashboardLayout({
     skipOrganizationValidation: true,
   });
 
-  return <DashboardShell userId={user.id}>{children}</DashboardShell>;
+  return <DashboardShell>{children}</DashboardShell>;
 }

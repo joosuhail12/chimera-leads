@@ -94,11 +94,26 @@ Required environment variables (see `.env.example`):
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous key
 - `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (server-side only)
 - Run `supabase db push` (or your usual migration workflow) after pulling to create/update tables such as `admin_users` and the new `user_profiles` table that stores Clerk profile metadata (names, avatars, phones, etc.).
-- `KNOCK_API_KEY` - Knock secret API key used for server actions
-- `NEXT_PUBLIC_KNOCK_PUBLIC_API_KEY` - Knock public API key used in the client inbox
-- `NEXT_PUBLIC_KNOCK_FEED_CHANNEL_ID` - Knock in-app feed channel id
-- (Optional) `KNOCK_TEST_WORKFLOW_ID` - Override for the workflow slug triggered by the sample button
 - Seed demo data anytime with `npm run seed` (uses the Supabase service role key, so only run locally).
+
+### Notifications (AWS SNS)
+- `AWS_REGION` - Region shared across SES/SNS usage (e.g. `us-east-1`)
+- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` - Credentials with permission to publish to SNS
+- `AWS_SNS_TOPIC_ARN` - Topic ARN that receives Chimera notification payloads
+- `MARKETING_UNSUBSCRIBE_SECRET` - Shared secret used to sign unsubscribe links (HMAC SHA-256 of `audienceId:channel`)
+- (Optional) `AWS_SES_*` variables configure existing email infrastructure and reuse the same AWS credentials.
+
+**Generating unsubscribe links**
+
+```
+const token = createHmac("sha256", process.env.MARKETING_UNSUBSCRIBE_SECRET!)
+  .update(`${audienceId}:${channel}`)
+  .digest("hex");
+
+const unsubscribeUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/unsubscribe?audienceId=${audienceId}&channel=${channel}&token=${token}`;
+```
+
+Passing `scope=global` in the query string marks the contact as globally unsubscribed.
 
 ## Setup Instructions
 
