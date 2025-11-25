@@ -1,6 +1,6 @@
 "use server";
 
-import Knock from "@knocklabs/node";
+import Knock, { APIError } from "@knocklabs/node";
 import { auth } from "@clerk/nextjs/server";
 
 const knockApiKey = process.env.KNOCK_API_KEY;
@@ -8,23 +8,49 @@ const knockWorkflow = process.env.KNOCK_TEST_WORKFLOW_ID || "knock-quickstart";
 
 const knockClient = knockApiKey ? new Knock({ apiKey: knockApiKey }) : null;
 
-export async function triggerKnockWorkflow(message: string) {
+type TriggerKnockResult =
+  | { success: true }
+  | { success: false; error: string };
+
+export async function triggerKnockWorkflow(
+  message: string
+): Promise<TriggerKnockResult> {
   if (!knockClient) {
-    throw new Error("KNOCK_API_KEY is not configured.");
+    return { success: false, error: "Knock API key is not configured." };
   }
 
   const { userId } = await auth();
 
   if (!userId) {
-    throw new Error("You must be signed in to trigger notifications.");
+    return { success: false, error: "You must be signed in to trigger notifications." };
   }
 
-  const response = await knockClient.workflows.trigger(knockWorkflow, {
-    recipients: [userId],
-    data: {
-      message,
-    },
-  });
+  try {
+    await knockClient.workflows.trigger(knockWorkflow, {
+      recipients: [userId],
+      data: {
+        message,
+      },
+    });
 
-  return response;
+    return { success: true };
+  } catch (error) {
+    if (error instanceof APIError && error.status === 404) {
+      console.error("Knock workflow not found", {
+        workflow: knockWorkflow,
+        status: error.status,
+      });
+      return {
+        success: false,
+        error:
+          "Knock workflow not found in this environment. Set KNOCK_TEST_WORKFLOW_ID or create the workflow in Knock before triggering.",
+      };
+    }
+
+    console.error("Knock workflow trigger failed", error);
+    return {
+      success: false,
+      error: "Failed to trigger workflow. Check your Knock configuration.",
+    };
+  }
 }

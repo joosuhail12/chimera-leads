@@ -7,6 +7,7 @@ export function KnockWorkflowTrigger() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
     "idle"
   );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
@@ -23,12 +24,21 @@ export function KnockWorkflowTrigger() {
           type="button"
           onClick={async () => {
             setStatus("loading");
+            setErrorMessage(null);
             try {
-              await triggerKnockWorkflow("Here's a message from Knock.");
-              setStatus("success");
-              setTimeout(() => setStatus("idle"), 3000);
+              const result = await triggerKnockWorkflow(
+                "Here's a message from Knock."
+              );
+              if (result.success) {
+                setStatus("success");
+                setTimeout(() => setStatus("idle"), 3000);
+              } else {
+                setErrorMessage(result.error);
+                setStatus("error");
+              }
             } catch (error) {
               console.error(error);
+              setErrorMessage("Unexpected error triggering workflow.");
               setStatus("error");
             }
           }}
@@ -40,7 +50,7 @@ export function KnockWorkflowTrigger() {
       </div>
       {status === "error" ? (
         <p className="mt-2 text-xs text-red-500">
-          Failed to trigger workflow. Check your Knock keys.
+          {errorMessage ?? "Failed to trigger workflow. Check your Knock keys."}
         </p>
       ) : null}
       {status === "success" ? (
