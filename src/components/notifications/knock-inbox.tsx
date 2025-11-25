@@ -39,6 +39,7 @@ export function KnockInbox({ userId }: KnockInboxProps) {
       apiKey={publicApiKey}
       user={{ id: userId }}
       i18n={{
+        locale: "en",
         translations: {
           notifications: "Notifications",
         },
