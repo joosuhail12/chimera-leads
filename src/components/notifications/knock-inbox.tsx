@@ -59,7 +59,7 @@ export function KnockInbox({ userId }: KnockInboxProps) {
             onClose={() => setIsVisible(false)}
             placement="bottom-end"
             initialFilterStatus={FilterStatus.Unread}
-            emptyState={
+            EmptyComponent={
               <div className="flex flex-col items-center gap-2 px-4 py-8 text-center text-sm text-gray-500">
                 <span className="text-2xl">🎉</span>
                 <p>No notifications yet.</p>
