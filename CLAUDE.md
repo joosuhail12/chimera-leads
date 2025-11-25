@@ -115,6 +115,11 @@ const unsubscribeUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/unsubscribe?audie
 
 Passing `scope=global` in the query string marks the contact as globally unsubscribed.
 
+### Custom Fields & Marketing Lists
+- `marketing_lists` + `marketing_list_members` materialize audience segments for campaigns. Filters currently support `source`, `tags`, tag match mode, and minimum fit score. Rebuild via `/api/marketing-lists/:id` `PATCH { refreshMembers: true }`.
+- `custom_field_definitions` defines per-entity metadata (leads, audience, startup applications) with field types (`text`, `number`, `boolean`, `date`, `select`, `multiselect`). Use `/api/custom-fields` to manage definitions.
+- `custom_field_values` stores the actual values; update via `/api/custom-fields/values`.
+
 ## Setup Instructions
 
 1. Copy `.env.example` to `.env.local`
