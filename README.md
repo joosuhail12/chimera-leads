@@ -1,36 +1,23 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Email Infrastructure
 
-## Getting Started
+Transactional email now flows through Amazon SES with event tracking pushed to Amazon SNS and ingested by `/api/webhooks/ses`. Key pieces:
 
-First, run the development server:
+1. **Database** – run the Supabase migrations in `supabase/migrations/0003_add_email_events.sql` and `0004_add_email_category.sql` to create the logging tables plus the `category` column.
+2. **AWS resources** – 
+   - Transactional sends use SES configuration set `chimera-dashboard`.
+   - Marketing sends use SES configuration set `chimera-marketing`.
+   Both sets publish SEND/DELIVERY/BOUNCE/etc. events to SNS topic `arn:aws:sns:us-east-1:222727886779:chimera-ses-events`, which is subscribed to the production webhook `https://chimera.getpullse.com/api/webhooks/ses` (subscription auto-confirms).
+3. **Credentials** – the IAM user `chimera-email-service` has programmatic access limited to SES/SNS. Its key material is stored in `.env.local` for development and as Vercel Environment Variables for production, preview, and development.
+4. **Sending API** – use `sendTransactionalEmail` from `src/lib/services/emails.ts`. It logs a record to `outbound_emails`, sends via SES, and updates the status. Pass `category: "marketing"` to automatically route through the marketing configuration set; otherwise the helper defaults to transactional. SNS events are processed by `recordSesNotification`, which also persists every event row for analytics.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Environment variables that must be present in every deployment:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_REGION` (defaults to `us-east-1`)
+- `AWS_SES_REGION` (defaults to `us-east-1`)
+- `AWS_SES_CONFIGURATION_SET` (use `chimera-dashboard`)
+- `AWS_SES_MARKETING_CONFIGURATION_SET` (use `chimera-marketing`)
+- `EMAIL_FROM_ADDRESS` (e.g. `no-reply@getpullse.com` for the verified domain)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+To send a test email locally run `node -e "require('./dist').sendTransactionalEmail(...)"` once the project is built, or instrument the onboarding flows to call the helper.

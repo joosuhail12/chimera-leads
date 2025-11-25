@@ -1,6 +1,6 @@
 "use client";
 
-import { UserButton } from "@clerk/nextjs";
+import { OrganizationSwitcher, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { KnockInbox } from "@/components/notifications/knock-inbox";
@@ -129,20 +129,41 @@ export function DashboardShell({ children, userId }: DashboardShellProps) {
           })}
         </div>
 
-        <div className="mt-auto rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-4 shadow-inner dark:border-gray-800 dark:from-gray-900 dark:to-gray-950">
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-            Need something custom?
-          </p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            We can help wire in new data sources or metrics as your workflow
-            evolves.
-          </p>
-          <Link
-            href="mailto:support@getpullse.com?subject=Chimera%20Dashboard"
-            className="mt-3 inline-flex items-center justify-center rounded-lg border border-chimera-teal/40 px-3 py-1.5 text-xs font-semibold text-chimera-teal transition-colors hover:bg-chimera-teal/10"
-          >
-            Contact support
-          </Link>
+        <div className="mt-auto space-y-4">
+          <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-4 shadow-inner dark:border-gray-800 dark:from-gray-900 dark:to-gray-950">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Account
+              </p>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                Manage profile
+              </p>
+            </div>
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox:
+                    "h-10 w-10 rounded-full border border-gray-200 dark:border-gray-700",
+                },
+              }}
+            />
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-4 shadow-inner dark:border-gray-800 dark:from-gray-900 dark:to-gray-950">
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              Need something custom?
+            </p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              We can help wire in new data sources or metrics as your workflow
+              evolves.
+            </p>
+            <Link
+              href="mailto:support@getpullse.com?subject=Chimera%20Dashboard"
+              className="mt-3 inline-flex items-center justify-center rounded-lg border border-chimera-teal/40 px-3 py-1.5 text-xs font-semibold text-chimera-teal transition-colors hover:bg-chimera-teal/10"
+            >
+              Contact support
+            </Link>
+          </div>
         </div>
       </aside>
 
@@ -175,11 +196,12 @@ export function DashboardShell({ children, userId }: DashboardShellProps) {
                 Share feedback
               </Link>
               {userId ? <KnockInbox userId={userId} /> : null}
-              <UserButton
+              <OrganizationSwitcher
+                hidePersonal
                 appearance={{
                   elements: {
-                    avatarBox:
-                      "h-10 w-10 rounded-full border border-gray-200 dark:border-gray-700",
+                    organizationSwitcherTrigger:
+                      "rounded-lg border border-gray-200/80 bg-white/80 px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-chimera-teal/40 hover:text-chimera-teal dark:border-gray-800 dark:bg-gray-900/70 dark:text-gray-200",
                   },
                 }}
               />
