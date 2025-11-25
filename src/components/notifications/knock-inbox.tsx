@@ -59,7 +59,6 @@ export function KnockInbox({ userId }: KnockInboxProps) {
             onClose={() => setIsVisible(false)}
             placement="bottom-end"
             initialFilterStatus={FilterStatus.Unread}
-            maxHeight={480}
             renderHeader={({ unreadCount, onMarkAllAsRead }) => (
               <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2">
                 <div>
