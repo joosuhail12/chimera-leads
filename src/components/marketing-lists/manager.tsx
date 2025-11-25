@@ -22,9 +22,58 @@ type MarketingListFilter = {
   minCustomerFitScore?: number;
   includeInactive?: boolean;
   emailContains?: string;
+  createdAfter?: string;
+  createdBefore?: string;
+  customFieldFilters?: CustomFieldFilterInput[];
+};
+
+type CustomFieldType =
+  | "text"
+  | "number"
+  | "boolean"
+  | "date"
+  | "select"
+  | "multiselect";
+
+type CustomFieldFilterInput = {
+  definitionId: string;
+  fieldType: CustomFieldType;
+  operator: "equals" | "contains" | "includes" | "gte" | "lte";
+  value: string;
+  fieldLabel?: string;
+};
+
+type CustomFieldDefinition = {
+  id: string;
+  name: string;
+  field_key: string;
+  description?: string | null;
+  field_type: CustomFieldType;
+  entity_type: "sales_leads" | "audience" | "startup_applications";
 };
 
 const toCsv = (values?: string[]) => values?.join(", ") ?? "";
+
+const getOperatorOptions = (fieldType: CustomFieldType) => {
+  switch (fieldType) {
+    case "number":
+    case "date":
+      return ["equals", "gte", "lte"] as const;
+    case "boolean":
+      return ["equals"] as const;
+    case "multiselect":
+      return ["includes"] as const;
+    default:
+      return ["equals", "contains"] as const;
+  }
+};
+
+const getDefaultValueForFieldType = (fieldType: CustomFieldType) => {
+  if (fieldType === "boolean") {
+    return "true";
+  }
+  return "";
+};
 
 export function MarketingListsManager() {
   const [lists, setLists] = useState<MarketingList[]>([]);
@@ -37,8 +86,103 @@ export function MarketingListsManager() {
     tags: "",
     minScore: "",
     tagMatchMode: "any",
+    emailContains: "",
+    includeInactive: false,
+    createdAfter: "",
+    createdBefore: "",
   });
+  const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>([]);
+  const [customFieldFilters, setCustomFieldFilters] = useState<CustomFieldFilterInput[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleAddCustomFieldFilter = () => {
+    if (!customFields.length) {
+      return;
+    }
+    const field = customFields[0];
+    const operatorOptions = getOperatorOptions(field.field_type);
+    setCustomFieldFilters((prev) => [
+      ...prev,
+      {
+        definitionId: field.id,
+        fieldType: field.field_type,
+        operator: operatorOptions[0],
+        value: getDefaultValueForFieldType(field.field_type),
+        fieldLabel: field.name,
+      },
+    ]);
+  };
+
+  const handleUpdateCustomFieldFilter = (
+    index: number,
+    updates: Partial<CustomFieldFilterInput>
+  ) => {
+    setCustomFieldFilters((prev) =>
+      prev.map((filter, idx) => (idx === index ? { ...filter, ...updates } : filter))
+    );
+  };
+
+  const handleRemoveCustomFieldFilter = (index: number) => {
+    setCustomFieldFilters((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const renderCustomFilterValueInput = (
+    filter: CustomFieldFilterInput,
+    index: number
+  ) => {
+    if (filter.fieldType === "number") {
+      return (
+        <input
+          type="number"
+          value={filter.value}
+          onChange={(event) =>
+            handleUpdateCustomFieldFilter(index, { value: event.target.value })
+          }
+          className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-sky-300 focus:outline-none"
+          placeholder="e.g. 75"
+        />
+      );
+    }
+
+    if (filter.fieldType === "boolean") {
+      return (
+        <select
+          value={filter.value}
+          onChange={(event) =>
+            handleUpdateCustomFieldFilter(index, { value: event.target.value })
+          }
+          className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-sky-300 focus:outline-none"
+        >
+          <option value="true">True</option>
+          <option value="false">False</option>
+        </select>
+      );
+    }
+
+    if (filter.fieldType === "date") {
+      return (
+        <input
+          type="date"
+          value={filter.value}
+          onChange={(event) =>
+            handleUpdateCustomFieldFilter(index, { value: event.target.value })
+          }
+          className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-sky-300 focus:outline-none"
+        />
+      );
+    }
+
+    return (
+      <input
+        value={filter.value}
+        onChange={(event) =>
+          handleUpdateCustomFieldFilter(index, { value: event.target.value })
+        }
+        className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-sky-300 focus:outline-none"
+        placeholder="Enter value"
+      />
+    );
+  };
 
   const activeLists = useMemo(
     () => lists.filter((list) => !list.is_archived),
@@ -75,6 +219,28 @@ export function MarketingListsManager() {
     loadLists();
   }, []);
 
+  useEffect(() => {
+    async function loadCustomFields() {
+      try {
+        const response = await fetch(
+          "/api/custom-fields?entityType=audience",
+          { cache: "no-store" }
+        );
+        if (!response.ok) {
+          throw new Error("Failed to load custom fields.");
+        }
+        const payload = (await response.json()) as {
+          definitions: CustomFieldDefinition[];
+        };
+        setCustomFields(payload.definitions ?? []);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    loadCustomFields();
+  }, []);
+
   const filters: MarketingListFilter = {
     sources: formState.sources
       .split(",")
@@ -87,6 +253,13 @@ export function MarketingListsManager() {
     tagMatchMode: formState.tagMatchMode as "any" | "all",
     minCustomerFitScore: formState.minScore
       ? Number(formState.minScore)
+      : undefined,
+    emailContains: formState.emailContains || undefined,
+    includeInactive: formState.includeInactive || undefined,
+    createdAfter: formState.createdAfter || undefined,
+    createdBefore: formState.createdBefore || undefined,
+    customFieldFilters: customFieldFilters.length
+      ? customFieldFilters.filter((filter) => filter.value.trim())
       : undefined,
   };
 
@@ -115,7 +288,12 @@ export function MarketingListsManager() {
         tags: "",
         minScore: "",
         tagMatchMode: "any",
+        emailContains: "",
+        includeInactive: false,
+        createdAfter: "",
+        createdBefore: "",
       });
+      setCustomFieldFilters([]);
       await loadLists();
     } catch (err) {
       console.error(err);
@@ -226,6 +404,20 @@ export function MarketingListsManager() {
             />
           </label>
           <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+            Email contains
+            <input
+              value={formState.emailContains}
+              onChange={(event) =>
+                setFormState((state) => ({
+                  ...state,
+                  emailContains: event.target.value,
+                }))
+              }
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-sky-300 focus:outline-none"
+              placeholder="@company.com"
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
             Tag match mode
             <select
               value={formState.tagMatchMode}
@@ -258,6 +450,142 @@ export function MarketingListsManager() {
               placeholder="e.g. 75"
             />
           </label>
+          <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+            Created after
+            <input
+              type="date"
+              value={formState.createdAfter}
+              onChange={(event) =>
+                setFormState((state) => ({
+                  ...state,
+                  createdAfter: event.target.value,
+                }))
+              }
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-sky-300 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+            Created before
+            <input
+              type="date"
+              value={formState.createdBefore}
+              onChange={(event) =>
+                setFormState((state) => ({
+                  ...state,
+                  createdBefore: event.target.value,
+                }))
+              }
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-sky-300 focus:outline-none"
+            />
+          </label>
+          <div className="md:col-span-2 flex items-center justify-between pt-2">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={formState.includeInactive}
+                onChange={(event) =>
+                  setFormState((state) => ({
+                    ...state,
+                    includeInactive: event.target.checked,
+                  }))
+                }
+                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+              />
+              Include inactive contacts
+            </label>
+          </div>
+          <div className="md:col-span-2 space-y-3 rounded-2xl border border-slate-100 bg-slate-50/40 p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-slate-900">
+                Custom field filters
+              </p>
+              <button
+                type="button"
+                onClick={handleAddCustomFieldFilter}
+                disabled={!customFields.length}
+                className="text-xs font-semibold text-sky-600 transition hover:text-sky-500 disabled:opacity-50"
+              >
+                Add condition
+              </button>
+            </div>
+            {customFieldFilters.length === 0 ? (
+              <p className="text-xs text-slate-500">
+                {customFields.length
+                  ? "No custom conditions added yet."
+                  : "Define audience custom fields first to filter by them."}
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {customFieldFilters.map((filter, index) => {
+                  const fieldOptions = customFields;
+                  const operators = getOperatorOptions(filter.fieldType);
+                  return (
+                    <div
+                      key={`${filter.definitionId}-${index}`}
+                      className="grid gap-2 md:grid-cols-4"
+                    >
+                      <select
+                        value={filter.definitionId}
+                        onChange={(event) => {
+                          const nextField = fieldOptions.find(
+                            (field) => field.id === event.target.value
+                          );
+                          if (!nextField) {
+                            return;
+                          }
+                          const nextOperators = getOperatorOptions(
+                            nextField.field_type
+                          );
+                          handleUpdateCustomFieldFilter(index, {
+                            definitionId: nextField.id,
+                            fieldType: nextField.field_type,
+                            operator: nextOperators[0],
+                            value: getDefaultValueForFieldType(nextField.field_type),
+                            fieldLabel: nextField.name,
+                          });
+                        }}
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-sky-300 focus:outline-none"
+                      >
+                        {fieldOptions.map((field) => (
+                          <option key={field.id} value={field.id}>
+                            {field.name}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={filter.operator}
+                        onChange={(event) =>
+                          handleUpdateCustomFieldFilter(index, {
+                            operator: event.target.value as CustomFieldFilterInput["operator"],
+                          })
+                        }
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-sky-300 focus:outline-none"
+                      >
+                        {operators.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="md:col-span-2 flex items-center gap-2">
+                        <div className="flex-1">
+                          {renderCustomFilterValueInput(filter, index)}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCustomFieldFilter(index)}
+                          className="rounded-lg border border-transparent px-2 py-1 text-xs font-semibold text-slate-400 transition hover:text-red-500"
+                          aria-label="Remove condition"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           <div className="md:col-span-2 flex items-center justify-between pt-2">
             <button
               type="submit"
@@ -293,11 +621,13 @@ export function MarketingListsManager() {
           </div>
         ) : activeLists.length ? (
           <div className="grid gap-4 md:grid-cols-2">
-            {activeLists.map((list) => (
-              <article
-                key={list.id}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-              >
+            {activeLists.map((list) => {
+              const listFilters = (list.filters ?? {}) as MarketingListFilter;
+              return (
+                <article
+                  key={list.id}
+                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-900">
@@ -319,21 +649,21 @@ export function MarketingListsManager() {
                     <dt className="font-semibold uppercase tracking-[0.2em] text-slate-400">
                       Sources
                     </dt>
-                    <dd>{toCsv(list.filters.sources)}</dd>
+                    <dd>{toCsv(listFilters.sources)}</dd>
                   </div>
                   <div>
                     <dt className="font-semibold uppercase tracking-[0.2em] text-slate-400">
                       Tags
                     </dt>
-                    <dd>{toCsv(list.filters.tags)}</dd>
+                    <dd>{toCsv(listFilters.tags)}</dd>
                   </div>
                   <div>
                     <dt className="font-semibold uppercase tracking-[0.2em] text-slate-400">
                       Fit score
                     </dt>
                     <dd>
-                      {list.filters.minCustomerFitScore
-                        ? `${list.filters.minCustomerFitScore}+`
+                      {listFilters.minCustomerFitScore
+                        ? `${listFilters.minCustomerFitScore}+`
                         : "Any"}
                     </dd>
                   </div>
@@ -349,7 +679,37 @@ export function MarketingListsManager() {
                         : "Never"}
                     </dd>
                   </div>
+                  <div>
+                    <dt className="font-semibold uppercase tracking-[0.2em] text-slate-400">
+                      Email filter
+                    </dt>
+                    <dd>{listFilters.emailContains ?? "Any"}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold uppercase tracking-[0.2em] text-slate-400">
+                      Created window
+                    </dt>
+                    <dd>
+                      {listFilters.createdAfter || listFilters.createdBefore
+                        ? `${listFilters.createdAfter ?? "…"} → ${
+                            listFilters.createdBefore ?? "…"
+                          }`
+                        : "Any time"}
+                    </dd>
+                  </div>
                 </dl>
+                {listFilters.customFieldFilters?.length ? (
+                  <ul className="mt-3 space-y-1 rounded-xl bg-slate-50/80 p-3 text-xs text-slate-600">
+                    {listFilters.customFieldFilters.map((filter, idx) => (
+                      <li key={`${filter.definitionId}-${idx}`}>
+                        <span className="font-semibold text-slate-900">
+                          {filter.fieldLabel ?? filter.definitionId}
+                        </span>{" "}
+                        {filter.operator} “{filter.value}”
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -367,7 +727,8 @@ export function MarketingListsManager() {
                   </button>
                 </div>
               </article>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">
@@ -385,16 +746,28 @@ export function MarketingListsManager() {
             </h2>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
-            {archivedLists.map((list) => (
-              <article
-                key={list.id}
-                className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-500"
-              >
+            {archivedLists.map((list) => {
+              const listFilters = (list.filters ?? {}) as MarketingListFilter;
+              return (
+                <article
+                  key={list.id}
+                  className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-500"
+                >
                 <div className="flex items-center justify-between">
                   <p className="font-semibold text-slate-700">{list.name}</p>
                   <span className="text-xs">{list.member_count} members</span>
                 </div>
                 <p className="mt-1 text-xs">{list.description}</p>
+                {listFilters.customFieldFilters?.length ? (
+                  <ul className="mt-2 space-y-1 text-[11px] text-slate-500">
+                    {listFilters.customFieldFilters.map((filter, idx) => (
+                      <li key={`${filter.definitionId}-${idx}`}>
+                        {filter.fieldLabel ?? filter.definitionId}: {filter.operator} “
+                        {filter.value}”
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => toggleArchive(list, false)}
@@ -403,7 +776,8 @@ export function MarketingListsManager() {
                   Restore
                 </button>
               </article>
-            ))}
+              );
+            })}
           </div>
         </section>
       ) : null}

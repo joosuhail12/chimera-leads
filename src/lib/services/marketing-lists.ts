@@ -8,6 +8,17 @@ export type MarketingListFilter = {
   minCustomerFitScore?: number;
   emailContains?: string;
   includeInactive?: boolean;
+  createdAfter?: string;
+  createdBefore?: string;
+  customFieldFilters?: CustomFieldFilter[];
+};
+
+export type CustomFieldFilter = {
+  definitionId: string;
+  fieldType: "text" | "number" | "boolean" | "date" | "select" | "multiselect";
+  operator: "equals" | "contains" | "includes" | "gte" | "lte";
+  value: string;
+  fieldLabel?: string;
 };
 
 type Supabase = SupabaseClient;
@@ -52,13 +63,29 @@ export async function syncMarketingListMembers(
     query = query.ilike("email", `%${filters.emailContains}%`);
   }
 
+  if (filters.createdAfter) {
+    query = query.gte("created_at", filters.createdAfter);
+  }
+
+  if (filters.createdBefore) {
+    query = query.lte("created_at", filters.createdBefore);
+  }
+
   const { data: audienceRows, error: audienceError } = await query;
 
   if (audienceError) {
     throw new Error(`Failed to select audience rows: ${audienceError.message}`);
   }
 
-  const audienceIds = (audienceRows ?? []).map((row) => row.id);
+  let audienceIds = (audienceRows ?? []).map((row) => row.id);
+
+  if (audienceIds.length && filters.customFieldFilters?.length) {
+    audienceIds = await filterAudienceByCustomFields(
+      audienceIds,
+      filters.customFieldFilters,
+      supabase
+    );
+  }
 
   const { error: deleteError } = await supabase
     .from("marketing_list_members")
@@ -109,4 +136,112 @@ export function normalizeSlug(text: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 120);
+}
+
+async function filterAudienceByCustomFields(
+  initialIds: string[],
+  customFilters: CustomFieldFilter[],
+  supabase: Supabase
+) {
+  let matchingIds = initialIds;
+
+  for (const filter of customFilters) {
+    if (!matchingIds.length) {
+      break;
+    }
+
+    const { data, error } = await supabase
+      .from("custom_field_values")
+      .select<CustomFieldValueRow>(
+        "entity_id,value_text,value_number,value_boolean,value_date,value_json"
+      )
+      .eq("entity_type", "audience")
+      .eq("definition_id", filter.definitionId)
+      .in("entity_id", matchingIds);
+
+    if (error) {
+      throw new Error(
+        `Failed to evaluate custom field filters: ${error.message}`
+      );
+    }
+
+    const satisfied = new Set<string>();
+
+    for (const row of data ?? []) {
+      if (matchesCustomFilter(row, filter)) {
+        satisfied.add(row.entity_id);
+      }
+    }
+
+    matchingIds = matchingIds.filter((id) => satisfied.has(id));
+  }
+
+  return matchingIds;
+}
+
+type CustomFieldValueRow = {
+  entity_id: string;
+  value_text: string | null;
+  value_number: number | null;
+  value_boolean: boolean | null;
+  value_date: string | null;
+  value_json: unknown;
+};
+
+function matchesCustomFilter(
+  row: CustomFieldValueRow,
+  filter: CustomFieldFilter
+) {
+  const value = filter.value ?? "";
+  switch (filter.fieldType) {
+    case "number": {
+      const target = Number(value);
+      if (!Number.isFinite(target)) return false;
+      const current = row.value_number;
+      if (current === null || current === undefined) return false;
+      if (filter.operator === "gte") return current >= target;
+      if (filter.operator === "lte") return current <= target;
+      return current === target;
+    }
+    case "boolean": {
+      const target = value === "true" || value === "1";
+      return row.value_boolean === target;
+    }
+    case "date": {
+      const rowValue = row.value_date;
+      if (!rowValue) return false;
+      if (filter.operator === "gte") {
+        return rowValue >= value;
+      }
+      if (filter.operator === "lte") {
+        return rowValue <= value;
+      }
+      return rowValue === value;
+    }
+    case "select": {
+      const current = row.value_text?.toLowerCase() ?? "";
+      const target = value.toLowerCase();
+      if (filter.operator === "contains") {
+        return current.includes(target);
+      }
+      return current === target;
+    }
+    case "multiselect": {
+      if (!row.value_json || !Array.isArray(row.value_json)) {
+        return false;
+      }
+      const list = (row.value_json as unknown[]).map((item) =>
+        String(item).toLowerCase()
+      );
+      return list.includes(value.toLowerCase());
+    }
+    default: {
+      const current = row.value_text?.toLowerCase() ?? "";
+      const target = value.toLowerCase();
+      if (filter.operator === "contains") {
+        return current.includes(target);
+      }
+      return current === target;
+    }
+  }
 }
