@@ -42,7 +42,7 @@ This is a Next.js 16.0.3 application using React 19.2.0, TypeScript, and Tailwin
   - `supabase/client.ts` - Browser-side Supabase client
   - `supabase/server.ts` - Server-side Supabase client with cookie handling
   - `supabase/middleware.ts` - Supabase session management for middleware
-- `src/middleware.ts` - Combined Clerk authentication and Supabase session middleware
+- `src/proxy.ts` - Next.js proxy entrypoint combining Clerk authentication and Supabase session middleware
 - `public/` - Static assets served from root URL
 
 ### Styling System
