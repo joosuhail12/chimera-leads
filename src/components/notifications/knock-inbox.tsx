@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   KnockProvider,
   KnockFeedProvider,
@@ -20,17 +20,10 @@ const feedId = process.env.NEXT_PUBLIC_KNOCK_FEED_CHANNEL_ID;
 export function KnockInbox({ userId }: KnockInboxProps) {
   const [isVisible, setIsVisible] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const [isMounted, setIsMounted] = useState(false);
+  const isConfigured = Boolean(publicApiKey && feedId);
+  const isClient = typeof window !== "undefined";
 
-  if (!publicApiKey || !feedId) {
-    return null;
-  }
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  if (!isMounted) {
+  if (!isConfigured || !isClient) {
     return null;
   }
 
