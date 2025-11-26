@@ -30,21 +30,24 @@ export async function GET() {
   }
 
   const lists =
-    data?.map((list) => ({
-      id: list.id,
-      name: list.name,
-      slug: list.slug,
-      description: list.description,
-      filters: list.filters,
-      is_archived: list.is_archived,
-      last_refreshed_at: list.last_refreshed_at,
-      created_at: list.created_at,
-      updated_at: list.updated_at,
-      member_count:
-        list.marketing_list_members?.[0]?.count ??
-        list.marketing_list_members?.count ??
-        0,
-    })) ?? [];
+    data?.map((list) => {
+      const memberCount = Array.isArray(list.marketing_list_members)
+        ? list.marketing_list_members[0]?.count ?? 0
+        : 0;
+
+      return {
+        id: list.id,
+        name: list.name,
+        slug: list.slug,
+        description: list.description,
+        filters: list.filters,
+        is_archived: list.is_archived,
+        last_refreshed_at: list.last_refreshed_at,
+        created_at: list.created_at,
+        updated_at: list.updated_at,
+        member_count: memberCount,
+      };
+    }) ?? [];
 
   return NextResponse.json({ lists });
 }
