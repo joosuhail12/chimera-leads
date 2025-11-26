@@ -3,13 +3,14 @@ import { auth } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { deleteCustomFieldDefinition } from "@/lib/services/custom-fields";
 
-type Params = {
-  params: {
+type RouteContext = {
+  params: Promise<{
     definitionId: string;
-  };
+  }>;
 };
 
-export async function PATCH(request: NextRequest, { params }: Params) {
+export async function PATCH(request: NextRequest, context: RouteContext) {
+  const { definitionId } = await context.params;
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -45,7 +46,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const { data, error } = await supabase
     .from("custom_field_definitions")
     .update(updates)
-    .eq("id", params.definitionId)
+    .eq("id", definitionId)
     .select("*")
     .single();
 
@@ -59,14 +60,15 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   return NextResponse.json({ definition: data });
 }
 
-export async function DELETE(_: NextRequest, { params }: Params) {
+export async function DELETE(_: NextRequest, context: RouteContext) {
+  const { definitionId } = await context.params;
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    await deleteCustomFieldDefinition(params.definitionId);
+    await deleteCustomFieldDefinition(definitionId);
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json(
