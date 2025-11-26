@@ -16,6 +16,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export const revalidate = 0;
+export const dynamic = "force-dynamic";
 
 export default async function StartupDetailPage({ params }: Params) {
   const supabase = createAdminClient();
@@ -26,6 +27,7 @@ export default async function StartupDetailPage({ params }: Params) {
     .single();
 
   if (error || !data) {
+    console.error("Startup application not found", { error, id: params.id });
     notFound();
   }
 

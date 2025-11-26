@@ -16,6 +16,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export const revalidate = 0;
+export const dynamic = "force-dynamic";
 
 export default async function AudienceDetailPage({ params }: Params) {
   const supabase = createAdminClient();
@@ -26,6 +27,7 @@ export default async function AudienceDetailPage({ params }: Params) {
     .single();
 
   if (error || !data) {
+    console.error("Audience detail not found", { error, id: params.id });
     notFound();
   }
 
