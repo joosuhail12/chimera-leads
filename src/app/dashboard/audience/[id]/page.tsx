@@ -29,6 +29,15 @@ export default async function AudienceDetailPage({ params }: Params) {
     notFound();
   }
 
+  type CustomFieldValue = {
+    value_text: string | null;
+    value_number: number | null;
+    value_boolean: boolean | null;
+    value_date: string | null;
+    value_json: unknown;
+    definition: { name?: string | null; field_key?: string | null; field_type?: string | null } | null;
+  };
+
   const { data: customFieldValues } = await supabase
     .from("custom_field_values")
     .select(
@@ -37,11 +46,11 @@ export default async function AudienceDetailPage({ params }: Params) {
     .eq("entity_id", params.id)
     .eq("entity_type", "audience");
 
-  const customFields = (customFieldValues ?? []).map((row) => ({
+  const customFields = (customFieldValues as CustomFieldValue[] | null)?.map((row) => ({
     label: row.definition?.name ?? row.definition?.field_key ?? "Custom field",
-    type: row.definition?.field_type ?? "text",
+    type: (row.definition?.field_type as string | undefined) ?? "text",
     value: row,
-  }));
+  })) ?? [];
 
   return (
     <div className="space-y-6">
