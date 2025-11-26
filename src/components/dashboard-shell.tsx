@@ -103,6 +103,46 @@ const navItems = [
       </svg>
     ),
   },
+  {
+    label: "Audience",
+    description: "Newsletter contacts & tags",
+    href: "/dashboard/audience",
+    icon: (
+      <svg
+        className="h-4 w-4"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M17 20h5v-2a4 4 0 00-5-3.87M9 20H4v-2a4 4 0 015-3.87m8-2.13a4 4 0 10-8 0m12.5 11a4 4 0 10-7 0M5 11a4 4 0 108 0 4 4 0 00-8 0z"
+        />
+      </svg>
+    ),
+  },
+  {
+    label: "Startup Apps",
+    description: "Applications & diligence",
+    href: "/dashboard/startups",
+    icon: (
+      <svg
+        className="h-4 w-4"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+    ),
+  },
 ];
 
 const NotificationBellClient = dynamic(
