@@ -7,13 +7,14 @@ import {
   syncMarketingListMembers,
 } from "@/lib/services/marketing-lists";
 
-type Params = {
-  params: {
+type RouteContext = {
+  params: Promise<{
     listId: string;
-  };
+  }>;
 };
 
-export async function GET(_: NextRequest, { params }: Params) {
+export async function GET(_: NextRequest, context: RouteContext) {
+  const { listId } = await context.params;
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -25,7 +26,7 @@ export async function GET(_: NextRequest, { params }: Params) {
     .select(
       "id,name,slug,description,filters,is_archived,last_refreshed_at,created_at,updated_at,marketing_list_members(count)"
     )
-    .eq("id", params.listId)
+    .eq("id", listId)
     .single();
 
   if (error || !data) {
@@ -38,7 +39,7 @@ export async function GET(_: NextRequest, { params }: Params) {
   const members = await supabase
     .from("marketing_list_members")
     .select("audience_id,audience:audience(id,email,first_name,last_name,tags,source)")
-    .eq("list_id", params.listId)
+    .eq("list_id", listId)
     .order("added_at", { ascending: false })
     .limit(50);
 
@@ -54,7 +55,8 @@ export async function GET(_: NextRequest, { params }: Params) {
   });
 }
 
-export async function PATCH(request: NextRequest, { params }: Params) {
+export async function PATCH(request: NextRequest, context: RouteContext) {
+  const { listId } = await context.params;
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -100,7 +102,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const { data, error } = await supabase
       .from("marketing_lists")
       .update(updates)
-      .eq("id", params.listId)
+      .eq("id", listId)
       .select(
         "id,name,slug,description,filters,is_archived,last_refreshed_at,created_at,updated_at"
       )
@@ -121,7 +123,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       (payload.filters as MarketingListFilter) ??
       (updatedList?.filters as MarketingListFilter) ??
       {};
-    await syncMarketingListMembers(params.listId, filters, supabase);
+    await syncMarketingListMembers(listId, filters, supabase);
   }
 
   return NextResponse.json({ success: true });
