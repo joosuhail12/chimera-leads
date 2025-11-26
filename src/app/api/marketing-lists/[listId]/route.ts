@@ -43,13 +43,14 @@ export async function GET(_: NextRequest, context: RouteContext) {
     .order("added_at", { ascending: false })
     .limit(50);
 
+  const memberCount = Array.isArray(data.marketing_list_members)
+    ? data.marketing_list_members[0]?.count ?? 0
+    : 0;
+
   return NextResponse.json({
     list: {
       ...data,
-      member_count:
-        data.marketing_list_members?.[0]?.count ??
-        data.marketing_list_members?.count ??
-        0,
+      member_count: memberCount,
       preview_members: members.data ?? [],
     },
   });
