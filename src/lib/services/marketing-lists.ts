@@ -152,7 +152,7 @@ async function filterAudienceByCustomFields(
 
     const { data, error } = await supabase
       .from("custom_field_values")
-      .select<CustomFieldValueRow>(
+      .select(
         "entity_id,value_text,value_number,value_boolean,value_date,value_json"
       )
       .eq("entity_type", "audience")
@@ -167,7 +167,8 @@ async function filterAudienceByCustomFields(
 
     const satisfied = new Set<string>();
 
-    for (const row of data ?? []) {
+    for (const rawRow of data ?? []) {
+      const row = rawRow as CustomFieldValueRow;
       if (matchesCustomFilter(row, filter)) {
         satisfied.add(row.entity_id);
       }
