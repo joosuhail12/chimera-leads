@@ -93,25 +93,26 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
-  const timestamp = new Date().toISOString();
+  const preferenceUpdates: Record<string, unknown> = {
+    audience_id: audienceId,
+  };
+
+  if (scope === "global") {
+    preferenceUpdates.email_status = "unsubscribed";
+    preferenceUpdates.sms_status = "unsubscribed";
+    preferenceUpdates.push_status = "unsubscribed";
+  } else {
+    preferenceUpdates[`${channelParam}_status`] = "unsubscribed";
+  }
 
   const { error } = await supabase
-    .from("marketing_subscriptions")
-    .upsert(
-      {
-        audience_id: audienceId,
-        channel: channelParam,
-        is_subscribed: false,
-        unsubscribed_at: timestamp,
-        unsubscribe_reason: reason,
-        global_unsubscribed: scope === "global",
-        global_unsubscribed_at: scope === "global" ? timestamp : null,
-      },
-      { onConflict: "audience_id,channel" }
-    );
+    .from("marketing_subscription_preferences")
+    .upsert(preferenceUpdates, { onConflict: "audience_id" })
+    .select("audience_id")
+    .single();
 
   if (error) {
-    console.error("Failed to update marketing_subscriptions", error);
+    console.error("Failed to update marketing_subscription_preferences", error);
     return NextResponse.json(
       { error: "Unable to update subscription preferences." },
       { status: 500 }
@@ -119,16 +120,30 @@ export async function GET(request: NextRequest) {
   }
 
   if (scope === "global") {
-    await supabase
-      .from("marketing_subscriptions")
-      .update({
-        global_unsubscribed: true,
-        global_unsubscribed_at: timestamp,
-        is_subscribed: false,
-        unsubscribed_at: timestamp,
-        unsubscribe_reason: reason,
-      })
-      .eq("audience_id", audienceId);
+    const { data: audienceRecord } = await supabase
+      .from("audience")
+      .select("email")
+      .eq("id", audienceId)
+      .single();
+
+    const { data: suppressionList } = await supabase
+      .from("suppression_lists")
+      .select("id")
+      .eq("scope", "global")
+      .eq("name", "Global Suppression")
+      .limit(1)
+      .single();
+
+    if (suppressionList?.id) {
+      await supabase
+        .from("suppression_entries")
+        .insert({
+          suppression_list_id: suppressionList.id,
+          audience_id: audienceId,
+          email: audienceRecord?.email ?? null,
+          reason,
+        });
+    }
   }
 
   return renderHtml(

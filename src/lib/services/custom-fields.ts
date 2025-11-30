@@ -8,11 +8,15 @@ export type CustomEntityType =
 
 export type CustomFieldType =
   | "text"
+  | "long_text"
   | "number"
   | "boolean"
   | "date"
   | "select"
-  | "multiselect";
+  | "multiselect"
+  | "url"
+  | "email"
+  | "phone";
 
 export type CustomFieldDefinition = {
   id: string;

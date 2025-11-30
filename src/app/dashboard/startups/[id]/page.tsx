@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { EditableField } from "@/components/ui/editable-field";
+import { formatCustomFieldValue } from "@/lib/utils/format-custom-field-value";
 
 type Params = {
   params: {
@@ -53,6 +55,8 @@ export default async function StartupDetailPage({ params }: Params) {
     value: row,
   })) ?? [];
 
+  const patchUrl = `/api/startups/${data.id}`;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 text-sm">
@@ -74,63 +78,74 @@ export default async function StartupDetailPage({ params }: Params) {
           {data.company_name}
         </h1>
         <p className="text-sm text-slate-500">{data.email}</p>
-        <dl className="mt-6 grid gap-4 text-sm text-slate-600 md:grid-cols-2">
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Status
-            </dt>
-            <dd>{data.status}</dd>
+        <div className="mt-6 grid gap-4 text-sm text-slate-600 md:grid-cols-2">
+          <EditableField
+            label="Company name"
+            value={data.company_name}
+            patchUrl={patchUrl}
+            payloadKey="company_name"
+            placeholder="Acme Robotics"
+          />
+          <EditableField
+            label="Contact email"
+            value={data.email}
+            patchUrl={patchUrl}
+            payloadKey="email"
+            placeholder="founder@example.com"
+            displayMode="email"
+          />
+          <EditableField
+            label="Status"
+            value={data.status}
+            patchUrl={patchUrl}
+            payloadKey="status"
+            placeholder="In review"
+          />
+          <EditableField
+            label="Program tier"
+            value={data.program_tier}
+            patchUrl={patchUrl}
+            payloadKey="program_tier"
+            placeholder="Tier 1"
+          />
+          <EditableField
+            label="Website"
+            value={data.website}
+            patchUrl={patchUrl}
+            payloadKey="website"
+            placeholder="https://example.com"
+            displayMode="url"
+          />
+          <EditableField
+            label="Use case"
+            value={data.use_case}
+            patchUrl={patchUrl}
+            payloadKey="use_case"
+            type="textarea"
+            placeholder="Describe their use case"
+          />
+          <EditableField
+            label="Seats needed"
+            value={data.seats_needed}
+            patchUrl={patchUrl}
+            payloadKey="seats_needed"
+            type="number"
+            placeholder="10"
+          />
+          <EditableField
+            label="Total funding"
+            value={data.total_funding}
+            patchUrl={patchUrl}
+            payloadKey="total_funding"
+            placeholder="$5M"
+          />
+          <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 text-xs uppercase tracking-[0.2em] text-slate-400 dark:border-gray-800 dark:bg-gray-900/60">
+            <span>Submitted</span>
+            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-gray-100">
+              {new Date(data.created_at).toLocaleString()}
+            </p>
           </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Program tier
-            </dt>
-            <dd>{data.program_tier ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Website
-            </dt>
-            <dd>
-              {data.website ? (
-                <a
-                  href={data.website.startsWith("http") ? data.website : `https://${data.website}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sky-600 hover:underline"
-                >
-                  {data.website}
-                </a>
-              ) : (
-                "—"
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Seats needed
-            </dt>
-            <dd>{data.seats_needed ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Use case
-            </dt>
-            <dd>{data.use_case ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Total funding
-            </dt>
-            <dd>{data.total_funding ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Submitted
-            </dt>
-            <dd>{new Date(data.created_at).toLocaleString()}</dd>
-          </div>
-        </dl>
+        </div>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -156,30 +171,4 @@ export default async function StartupDetailPage({ params }: Params) {
       </section>
     </div>
   );
-}
-
-function formatCustomFieldValue(row: {
-  value_text: string | null;
-  value_number: number | null;
-  value_boolean: boolean | null;
-  value_date: string | null;
-  value_json: unknown;
-}) {
-  if (row.value_text) return row.value_text;
-  if (row.value_number !== null && row.value_number !== undefined) {
-    return row.value_number.toString();
-  }
-  if (row.value_boolean !== null && row.value_boolean !== undefined) {
-    return row.value_boolean ? "True" : "False";
-  }
-  if (row.value_date) {
-    return new Date(row.value_date).toLocaleDateString();
-  }
-  if (row.value_json) {
-    if (Array.isArray(row.value_json)) {
-      return row.value_json.join(", ");
-    }
-    return JSON.stringify(row.value_json);
-  }
-  return "—";
 }

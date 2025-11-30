@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     const definitions = await listCustomFieldDefinitions(entityType || undefined);
     return NextResponse.json({ definitions });
   } catch (error) {
+    console.error("Error loading custom fields:", error);
     return NextResponse.json(
       {
         error:

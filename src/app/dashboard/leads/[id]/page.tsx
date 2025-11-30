@@ -1,8 +1,16 @@
 import { notFound } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
 import { AssignLeadButton } from "@/components/leads/assign-lead-button";
+import { EditableField } from "@/components/ui/editable-field";
+import { ActivityTimeline } from "@/components/crm/activity-timeline";
+import { EmailComposer } from "@/components/crm/email-composer";
+import { TaskList } from "@/components/crm/task-list";
+import { SequenceEnrollmentDialog } from "@/components/sequences/enrollment-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LEAD_STATUSES } from "@/lib/constants/leads";
 import { fetchFromApi } from "@/lib/utils/fetch-from-api";
+import { formatCustomFieldValue } from "@/lib/utils/format-custom-field-value";
+import type { CustomFieldValueRow } from "@/lib/utils/format-custom-field-value";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +39,18 @@ type BookingRecord = {
   status: string | null;
 };
 
+type LeadCustomField = {
+  id: string | null;
+  name: string;
+  field_key: string | null;
+  field_type: string;
+  value_text: string | null;
+  value_number: number | null;
+  value_boolean: boolean | null;
+  value_date: string | null;
+  value_json: unknown;
+};
+
 async function fetchLeadDetail(id: string) {
   try {
     const response = await fetchFromApi(`/api/leads/${id}`);
@@ -46,6 +66,9 @@ async function fetchLeadDetail(id: string) {
     return (await response.json()) as {
       lead: LeadRecord;
       bookings: BookingRecord[];
+      customFields: LeadCustomField[];
+      activities: any[];
+      tasks: any[];
     };
   } catch (error) {
     console.error("Failed to load lead detail", error);
@@ -68,7 +91,13 @@ export default async function LeadDetailPage({
     notFound();
   }
 
-  const { lead, bookings } = result;
+  const { lead, bookings, customFields = [], activities = [], tasks = [] } = result as {
+    lead: LeadRecord;
+    bookings: BookingRecord[];
+    customFields: LeadCustomField[];
+    activities: any[];
+    tasks: any[];
+  };
   const bookingRecords = bookings ?? [];
 
   const rawPayload = lead.raw_payload ?? {};
@@ -77,167 +106,247 @@ export default async function LeadDetailPage({
     (rawPayload.LinkedIn as string | undefined) ??
     (rawPayload.linkedin_url as string | undefined) ??
     null;
-  const statusMeta = LEAD_STATUSES.find((s) => s.value === lead.status);
 
-  const journeyEvents = [
+  const systemActivities = [
     {
-      title: "Signed up",
-      timestamp: lead.created_at,
-      description: `Lead created for ${lead.company}`,
+      id: "signup",
+      type: "status_change",
+      content: `Lead created for ${lead.company}`,
+      occurred_at: lead.created_at,
+      outcome: null,
+      created_by: null,
     },
     ...bookingRecords.map((booking) => ({
-      title: booking.event_title ?? "Meeting scheduled",
-      timestamp: booking.start_time,
-      description: booking.meeting_url
+      id: booking.id,
+      type: "meeting",
+      content: booking.meeting_url
         ? `Meeting link: ${booking.meeting_url}`
         : booking.status ?? "Calendar entry",
+      outcome: null,
+      occurred_at: booking.start_time ?? new Date().toISOString(),
+      created_by: null,
     })),
-    lead.admin_notes
-      ? {
-          title: "Admin notes updated",
-          timestamp: lead.updated_at,
-          description: lead.admin_notes,
-        }
-      : null,
-  ].filter(Boolean) as Array<{
-    title: string;
-    timestamp: string | null;
-    description: string | null;
-  }>;
+  ];
+
+  const allActivities = [...activities, ...systemActivities].sort(
+    (a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()
+  );
 
   const isAssignedToCurrentUser = !!user?.id && lead.assigned_to === user.id;
+  const leadPatchUrl = `/api/leads/${lead.id}`;
+  const statusOptions = LEAD_STATUSES.map((status) => ({
+    label: status.label,
+    value: status.value,
+  }));
 
   return (
-    <div className="space-y-6">
-      <header className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* Header */}
+        <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
-              Lead detail
-            </p>
-            <h1 className="text-3xl font-semibold text-gray-900 dark:text-gray-50">
-              {lead.name}
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
+                {lead.name}
+              </h1>
+              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                Lead
+              </span>
+            </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {lead.company}
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="rounded-full border border-gray-200 px-4 py-1 text-sm font-semibold text-gray-600 dark:border-gray-800 dark:text-gray-300">
-              {statusMeta?.label ?? lead.status}
-            </span>
+            <EditableField
+              label="Status"
+              value={lead.status}
+              patchUrl={leadPatchUrl}
+              payloadKey="status"
+              type="select"
+              options={statusOptions}
+              className="min-w-[140px] bg-white dark:bg-gray-900"
+            />
             <AssignLeadButton
               leadId={lead.id}
               isAssignedToCurrentUser={isAssignedToCurrentUser}
               assignedToLabel={lead.assigned_to}
             />
+            <SequenceEnrollmentDialog
+              leadId={lead.id}
+              leadName={lead.name}
+            />
+            <EmailComposer leadId={lead.id} leadEmail={lead.email} />
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Person */}
-        <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-            The Person
-          </h2>
-          <dl className="mt-4 space-y-3 text-sm">
-            <div>
-              <dt className="text-gray-500 dark:text-gray-400">Email</dt>
-              <dd className="font-medium">{lead.email}</dd>
-            </div>
-            {lead.phone ? (
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400">Phone</dt>
-                <dd className="font-medium">{lead.phone}</dd>
-              </div>
-            ) : null}
-            {linkedin ? (
-              <div>
-                <dt className="text-gray-500 dark:text-gray-400">LinkedIn</dt>
-                <dd>
-                  <a
-                    href={linkedin}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-medium text-chimera-teal hover:underline"
-                  >
-                    View profile
-                  </a>
-                </dd>
-              </div>
-            ) : null}
-          </dl>
-        </section>
-
-        {/* Context */}
-        <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:col-span-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-            The Context
-          </h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm dark:border-gray-800 dark:bg-gray-900/60">
-              <p className="text-xs uppercase tracking-wide text-gray-400">
-                Current solution
-              </p>
-              <p className="mt-1 font-medium text-gray-900 dark:text-gray-100">
-                {lead.current_solution ?? "Not provided"}
-              </p>
-            </div>
-            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm dark:border-gray-800 dark:bg-gray-900/60">
-              <p className="text-xs uppercase tracking-wide text-gray-400">
-                Buying timeline
-              </p>
-              <p className="mt-1 font-medium text-gray-900 dark:text-gray-100">
-                {lead.timeline ?? "Not specified"}
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm leading-relaxed text-gray-700 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-300">
-            {lead.message ?? "This lead did not leave a message."}
-          </div>
-        </section>
-      </div>
-
-      {/* Journey */}
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-          The Journey
-        </h2>
-        <div className="mt-4 space-y-6">
-          {journeyEvents.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              No activity yet.
-            </p>
-          ) : (
-            journeyEvents.map((event, index) => (
-              <div key={`${event.title}-${index}`} className="flex gap-4">
-                <div className="flex flex-col items-center">
-                  <span className="h-3 w-3 rounded-full bg-chimera-teal" />
-                  {index < journeyEvents.length - 1 ? (
-                    <span className="mt-1 h-full w-px bg-gray-200 dark:bg-gray-800" />
-                  ) : null}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    {event.title}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {event.timestamp
-                      ? new Date(event.timestamp).toLocaleString()
-                      : "Date unknown"}
-                  </p>
-                  {event.description ? (
-                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                      {event.description}
+        <div className="grid gap-8 lg:grid-cols-4">
+          {/* Sidebar */}
+          <aside className="lg:col-span-1">
+            <div className="sticky top-8 space-y-6">
+              {/* Contact Info Card */}
+              <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <div className="mb-4 flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sky-100 text-lg font-bold text-sky-700 dark:bg-sky-900/30 dark:text-sky-400">
+                    {lead.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-gray-900 dark:text-gray-50">
+                      {lead.name}
+                    </h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {lead.company}
                     </p>
-                  ) : null}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <EditableField
+                    label="Email"
+                    value={lead.email}
+                    patchUrl={leadPatchUrl}
+                    payloadKey="email"
+                    placeholder="email@example.com"
+                    displayMode="email"
+                    className="border-none bg-transparent p-0"
+                  />
+                  <EditableField
+                    label="Phone"
+                    value={lead.phone}
+                    patchUrl={leadPatchUrl}
+                    payloadKey="phone"
+                    placeholder="+1 555 0100"
+                    className="border-none bg-transparent p-0"
+                  />
+                  {linkedin && (
+                    <div className="text-sm">
+                      <span className="block text-xs font-semibold uppercase tracking-wider text-gray-400">
+                        LinkedIn
+                      </span>
+                      <a
+                        href={linkedin}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-block text-sky-600 hover:underline dark:text-sky-400"
+                      >
+                        View Profile
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
-            ))
-          )}
+
+              {/* Custom Fields Sidebar */}
+              <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Custom Fields
+                </h3>
+                {customFields.length ? (
+                  <dl className="space-y-4">
+                    {customFields.map((field) => (
+                      <div key={field.id ?? field.field_key ?? field.name}>
+                        <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                          {field.name}
+                        </dt>
+                        <dd className="mt-1 text-sm text-gray-900 dark:text-gray-200">
+                          {formatCustomFieldValue({
+                            value_text: field.value_text,
+                            value_number: field.value_number,
+                            value_boolean: field.value_boolean,
+                            value_date: field.value_date,
+                            value_json: field.value_json,
+                          } as CustomFieldValueRow)}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : (
+                  <p className="text-sm text-gray-500">No custom fields.</p>
+                )}
+              </div>
+
+              {/* Tasks Sidebar */}
+              <TaskList leadId={lead.id} tasks={tasks} />
+            </div>
+          </aside>
+
+          {/* Main Content */}
+          <main className="lg:col-span-3">
+            <Tabs defaultValue="overview">
+              <TabsList className="mb-6">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="activity">Activity</TabsTrigger>
+                <TabsTrigger value="notes">Notes</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview">
+                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                  <h3 className="mb-6 text-lg font-semibold text-gray-900 dark:text-gray-50">
+                    Deal Context
+                  </h3>
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <EditableField
+                      label="Company Name"
+                      value={lead.company}
+                      patchUrl={leadPatchUrl}
+                      payloadKey="company"
+                      placeholder="Acme Co."
+                    />
+                    <EditableField
+                      label="Buying Timeline"
+                      value={lead.timeline}
+                      patchUrl={leadPatchUrl}
+                      payloadKey="timeline"
+                      placeholder="e.g. 2-3 months"
+                    />
+                    <EditableField
+                      label="Current Solution"
+                      value={lead.current_solution}
+                      patchUrl={leadPatchUrl}
+                      payloadKey="current_solution"
+                      type="textarea"
+                      className="md:col-span-2"
+                      placeholder="Describe the tools they're using today"
+                    />
+                    <EditableField
+                      label="Initial Message"
+                      value={lead.message}
+                      patchUrl={leadPatchUrl}
+                      payloadKey="message"
+                      type="textarea"
+                      className="md:col-span-2"
+                      placeholder="What did this lead ask for?"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="activity">
+                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                  <ActivityTimeline leadId={lead.id} activities={allActivities} />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="notes">
+                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                  <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-50">
+                    Internal Notes
+                  </h3>
+                  <EditableField
+                    label="Admin Notes"
+                    value={lead.admin_notes}
+                    patchUrl={leadPatchUrl}
+                    payloadKey="admin_notes"
+                    type="textarea"
+                    placeholder="Document next steps, blockers, or anything helpful for teammates."
+                    className="min-h-[200px]"
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+          </main>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

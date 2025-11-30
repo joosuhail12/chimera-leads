@@ -1,0 +1,199 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ElastiCache Redis Cluster for Chimera Application'
+
+Parameters:
+  EnvironmentName:
+    Description: Environment name prefix
+    Type: String
+    Default: chimera
+
+  NodeType:
+    Description: ElastiCache node instance type
+    Type: String
+    Default: cache.t3.micro
+    AllowedValues:
+      - cache.t3.micro
+      - cache.t3.small
+      - cache.t3.medium
+      - cache.r6g.large
+      - cache.r6g.xlarge
+
+  NumCacheNodes:
+    Description: Number of cache nodes
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 6
+
+  VPCId:
+    Description: VPC ID where Redis will be deployed
+    Type: AWS::EC2::VPC::Id
+
+  SubnetIds:
+    Description: Subnet IDs for the cache subnet group (select at least 2)
+    Type: List<AWS::EC2::Subnet::Id>
+
+  AllowedCIDR:
+    Description: CIDR block allowed to connect to Redis
+    Type: String
+    Default: 0.0.0.0/0
+
+Resources:
+  # Security Group for Redis
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${EnvironmentName}-redis-sg'
+      GroupDescription: Security group for Chimera Redis cluster
+      VpcId: !Ref VPCId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          CidrIp: !Ref AllowedCIDR
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-redis-sg'
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Project
+          Value: Chimera
+
+  # Cache Parameter Group
+  CacheParameterGroup:
+    Type: AWS::ElastiCache::ParameterGroup
+    Properties:
+      CacheParameterGroupFamily: redis7
+      Description: Custom parameters for Chimera Redis cluster
+      Properties:
+        maxmemory-policy: allkeys-lru
+        timeout: '300'
+        tcp-keepalive: '300'
+        tcp-backlog: '511'
+        databases: '16'
+        notify-keyspace-events: Ex
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-redis-params'
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # Cache Subnet Group
+  CacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      CacheSubnetGroupName: !Sub '${EnvironmentName}-cache-subnet'
+      Description: Subnet group for Chimera Redis cluster
+      SubnetIds: !Ref SubnetIds
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-cache-subnet'
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # ElastiCache Redis Cluster
+  RedisCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      CacheClusterId: !Sub '${EnvironmentName}-redis-cluster'
+      CacheNodeType: !Ref NodeType
+      Engine: redis
+      EngineVersion: 7.0
+      NumCacheNodes: !Ref NumCacheNodes
+      CacheParameterGroupName: !Ref CacheParameterGroup
+      CacheSubnetGroupName: !Ref CacheSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref RedisSecurityGroup
+      Port: 6379
+      PreferredMaintenanceWindow: sun:05:00-sun:06:00
+      SnapshotRetentionLimit: 7
+      SnapshotWindow: 03:00-05:00
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-redis'
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Project
+          Value: Chimera
+
+  # CloudWatch Alarms
+  CPUAlarmHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${EnvironmentName}-redis-cpu-high'
+      AlarmDescription: Alarm when CPU exceeds 70%
+      MetricName: CPUUtilization
+      Namespace: AWS/ElastiCache
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 70
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Ref RedisCluster
+
+  MemoryAlarmHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${EnvironmentName}-redis-memory-high'
+      AlarmDescription: Alarm when memory usage exceeds 80%
+      MetricName: DatabaseMemoryUsagePercentage
+      Namespace: AWS/ElastiCache
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Ref RedisCluster
+
+  EvictionsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${EnvironmentName}-redis-evictions'
+      AlarmDescription: Alarm when evictions occur
+      MetricName: Evictions
+      Namespace: AWS/ElastiCache
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1000
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Ref RedisCluster
+
+Outputs:
+  RedisEndpoint:
+    Description: Redis cluster endpoint
+    Value: !GetAtt RedisCluster.RedisEndpoint.Address
+    Export:
+      Name: !Sub '${EnvironmentName}-redis-endpoint'
+
+  RedisPort:
+    Description: Redis cluster port
+    Value: !GetAtt RedisCluster.RedisEndpoint.Port
+    Export:
+      Name: !Sub '${EnvironmentName}-redis-port'
+
+  SecurityGroupId:
+    Description: Security Group ID
+    Value: !Ref RedisSecurityGroup
+    Export:
+      Name: !Sub '${EnvironmentName}-redis-sg'
+
+  ConnectionString:
+    Description: Redis connection string
+    Value: !Sub 'redis://${RedisCluster.RedisEndpoint.Address}:${RedisCluster.RedisEndpoint.Port}'
+    Export:
+      Name: !Sub '${EnvironmentName}-redis-connection'
+
+  EnvironmentVariables:
+    Description: Environment variables for .env file
+    Value: !Sub |
+      # AWS ElastiCache Redis Configuration
+      REDIS_HOST=${RedisCluster.RedisEndpoint.Address}
+      REDIS_PORT=${RedisCluster.RedisEndpoint.Port}
+      REDIS_URL=redis://${RedisCluster.RedisEndpoint.Address}:${RedisCluster.RedisEndpoint.Port}

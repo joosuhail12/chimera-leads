@@ -2,6 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { EditableField } from "@/components/ui/editable-field";
+import { SuppressionManager } from "@/components/audience/suppression-manager";
+import { formatCustomFieldValue } from "@/lib/utils/format-custom-field-value";
 
 type Params = {
   params: {
@@ -40,6 +43,13 @@ export default async function AudienceDetailPage({ params }: Params) {
     definition: { name?: string | null; field_key?: string | null; field_type?: string | null } | null;
   };
 
+  type SuppressionEntry = {
+    id: string;
+    reason: string | null;
+    created_at: string;
+    suppression_list?: { id: string; name: string; scope: string } | null;
+  };
+
   const { data: customFieldValues } = await supabase
     .from("custom_field_values")
     .select(
@@ -53,6 +63,38 @@ export default async function AudienceDetailPage({ params }: Params) {
     type: (row.definition?.field_type as string | undefined) ?? "text",
     value: row,
   })) ?? [];
+
+  const { data: subscriptionPreferences } = await supabase
+    .from("marketing_subscription_preferences")
+    .select("*")
+    .eq("audience_id", params.id)
+    .single();
+
+  const { data: suppressionEntries } = await supabase
+    .from("suppression_entries")
+    .select(
+      "id,reason,created_at,suppression_list:suppression_lists(id,name,scope)"
+    )
+    .or(`audience_id.eq.${params.id},email.eq.${data.email}`)
+    .order("created_at", { ascending: false });
+
+  const preferences =
+    subscriptionPreferences ?? {
+      audience_id: data.id,
+      email_status: "subscribed",
+      sms_status: "subscribed",
+      push_status: "subscribed",
+      topics: [],
+    };
+
+  const patchUrl = `/api/audience/${data.id}`;
+  const tagsAsCsv = data.tags?.join(", ") ?? "";
+  const subscriptionPatchUrl = `/api/audience/${data.id}/subscriptions`;
+  const subscriptionOptions = [
+    { label: "Subscribed", value: "subscribed" },
+    { label: "Transactional only", value: "transactional_only" },
+    { label: "Unsubscribed", value: "unsubscribed" },
+  ];
 
   return (
     <div className="space-y-6">
@@ -79,38 +121,130 @@ export default async function AudienceDetailPage({ params }: Params) {
           </h1>
           <p className="text-sm text-slate-500">{data.email}</p>
         </div>
-        <dl className="mt-6 grid gap-4 text-sm text-slate-600 md:grid-cols-2">
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Source
-            </dt>
-            <dd>{data.source ?? "Unknown"}</dd>
+        <div className="mt-6 grid gap-4 text-sm text-slate-600 md:grid-cols-2">
+          <EditableField
+            label="First name"
+            value={data.first_name}
+            patchUrl={patchUrl}
+            payloadKey="first_name"
+            placeholder="First name"
+          />
+          <EditableField
+            label="Last name"
+            value={data.last_name}
+            patchUrl={patchUrl}
+            payloadKey="last_name"
+            placeholder="Last name"
+          />
+          <EditableField
+            label="Email"
+            value={data.email}
+            patchUrl={patchUrl}
+            payloadKey="email"
+            placeholder="contact@example.com"
+            displayMode="email"
+          />
+          <EditableField
+            label="Source"
+            value={data.source}
+            patchUrl={patchUrl}
+            payloadKey="source"
+            placeholder="Landing page"
+          />
+          <EditableField
+            label="UTM source"
+            value={data.utm_source}
+            patchUrl={patchUrl}
+            payloadKey="utm_source"
+            placeholder="Newsletter"
+          />
+          <EditableField
+            label="Tags"
+            value={tagsAsCsv}
+            patchUrl={patchUrl}
+            buildPayload={(raw) => ({
+              tags: raw
+                .split(",")
+                .map((tag) => tag.trim())
+                .filter(Boolean),
+            })}
+            displayMode="chips"
+            helperText="Comma separated"
+          />
+          <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 text-xs uppercase tracking-[0.2em] text-slate-400 dark:border-gray-800 dark:bg-gray-900/60">
+            <span>Customer fit score</span>
+            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-gray-100">
+              {data.customer_fit_score ?? "Unscored"}
+            </p>
           </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Customer fit score
-            </dt>
-            <dd>{data.customer_fit_score ?? "Unscored"}</dd>
+          <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 text-xs uppercase tracking-[0.2em] text-slate-400 dark:border-gray-800 dark:bg-gray-900/60">
+            <span>Created at</span>
+            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-gray-100">
+              {new Date(data.created_at).toLocaleString()}
+            </p>
           </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Tags
-            </dt>
-            <dd>{data.tags?.length ? data.tags.join(", ") : "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Created at
-            </dt>
-            <dd>{new Date(data.created_at).toLocaleString()}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              UTM source
-            </dt>
-            <dd>{data.utm_source ?? "—"}</dd>
-          </div>
-        </dl>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-900">
+            Suppression status
+          </h2>
+        </div>
+        <div className="mt-4">
+          <SuppressionManager
+            audienceId={data.id}
+            email={data.email}
+            entries={(suppressionEntries ?? []).map((entry) => ({
+              ...entry,
+              suppression_list: Array.isArray(entry.suppression_list)
+                ? entry.suppression_list[0]
+                : entry.suppression_list,
+            })) as SuppressionEntry[]}
+          />
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">
+          Subscription preferences
+        </h2>
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <EditableField
+            label="Email"
+            value={preferences.email_status}
+            patchUrl={subscriptionPatchUrl}
+            buildPayload={(value) => ({
+              email_status: value,
+            })}
+            type="select"
+            options={subscriptionOptions}
+            helperText="Marketing emails, nurture drips, announcements."
+          />
+          <EditableField
+            label="SMS"
+            value={preferences.sms_status}
+            patchUrl={subscriptionPatchUrl}
+            buildPayload={(value) => ({
+              sms_status: value,
+            })}
+            type="select"
+            options={subscriptionOptions}
+            helperText="Transactional texts vs promotional alerts."
+          />
+          <EditableField
+            label="Push"
+            value={preferences.push_status}
+            patchUrl={subscriptionPatchUrl}
+            buildPayload={(value) => ({
+              push_status: value,
+            })}
+            type="select"
+            options={subscriptionOptions}
+            helperText="In-app or mobile push notifications."
+          />
+        </div>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -136,30 +270,4 @@ export default async function AudienceDetailPage({ params }: Params) {
       </section>
     </div>
   );
-}
-
-function formatCustomFieldValue(row: {
-  value_text: string | null;
-  value_number: number | null;
-  value_boolean: boolean | null;
-  value_date: string | null;
-  value_json: unknown;
-}) {
-  if (row.value_text) return row.value_text;
-  if (row.value_number !== null && row.value_number !== undefined) {
-    return row.value_number.toString();
-  }
-  if (row.value_boolean !== null && row.value_boolean !== undefined) {
-    return row.value_boolean ? "True" : "False";
-  }
-  if (row.value_date) {
-    return new Date(row.value_date).toLocaleDateString();
-  }
-  if (row.value_json) {
-    if (Array.isArray(row.value_json)) {
-      return row.value_json.join(", ");
-    }
-    return JSON.stringify(row.value_json);
-  }
-  return "—";
 }

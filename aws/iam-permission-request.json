@@ -1,0 +1,59 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ElastiCacheManagement",
+      "Effect": "Allow",
+      "Action": [
+        "elasticache:CreateCacheCluster",
+        "elasticache:CreateCacheParameterGroup",
+        "elasticache:CreateCacheSubnetGroup",
+        "elasticache:ModifyCacheParameterGroup",
+        "elasticache:DescribeCacheClusters",
+        "elasticache:DescribeCacheParameterGroups",
+        "elasticache:DescribeCacheSubnetGroups",
+        "elasticache:AddTagsToResource",
+        "elasticache:ListTagsForResource",
+        "elasticache:DescribeCacheEngineVersions",
+        "elasticache:DescribeEngineDefaultParameters"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "VPCManagement",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeVpcs",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeSecurityGroups",
+        "ec2:CreateSecurityGroup",
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:DescribeAvailabilityZones"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CloudWatchMonitoring",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:PutMetricAlarm",
+        "cloudwatch:DescribeAlarms",
+        "cloudwatch:GetMetricStatistics"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CloudFormationDeployment",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:CreateStack",
+        "cloudformation:UpdateStack",
+        "cloudformation:DeleteStack",
+        "cloudformation:DescribeStacks",
+        "cloudformation:DescribeStackEvents",
+        "cloudformation:GetTemplate"
+      ],
+      "Resource": "arn:aws:cloudformation:*:222727886779:stack/chimera-redis/*"
+    }
+  ]
+}
