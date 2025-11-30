@@ -3,7 +3,15 @@ import { AILeadScoringService } from '@/lib/services/lead-scoring';
 import { createClient } from '@/lib/supabase/server';
 import { enrichmentQueue, bulkQueue, webhookQueue, scoringQueue } from './apollo-queue';
 import { Worker, Job } from 'bullmq';
-import { redisConnection } from '@/lib/redis/client';
+import { redisConfig } from '@/lib/redis/client';
+
+// Create connection options for BullMQ workers
+const redisConnection = {
+  host: redisConfig.connection.host,
+  port: redisConfig.connection.port,
+  password: redisConfig.connection.password,
+  db: redisConfig.connection.db,
+};
 
 /**
  * Worker Manager for Apollo Queue System
@@ -55,8 +63,13 @@ export class WorkerManager {
 
             // Trigger scoring
             await scoringQueue.add('score-lead', {
+              id: metadata.leadId,
               leadId: metadata.leadId,
-              data: result,
+              leadData: result,
+              metadata: {
+                userId: metadata.userId,
+                orgId: metadata.orgId,
+              },
             });
           }
 
@@ -151,9 +164,14 @@ export class WorkerManager {
               if (data.email) {
                 // Re-enrich the person
                 await enrichmentQueue.add('enrich', {
+                  id: `webhook-person-${Date.now()}`,
                   type: 'person',
                   identifier: data.email,
                   priority: 'high',
+                  metadata: {
+                    userId: 'webhook',
+                    orgId: data.orgId || 'webhook',
+                  },
                 });
               }
               break;
@@ -162,9 +180,14 @@ export class WorkerManager {
               if (data.domain) {
                 // Re-enrich the company
                 await enrichmentQueue.add('enrich', {
+                  id: `webhook-company-${Date.now()}`,
                   type: 'company',
                   identifier: data.domain,
                   priority: 'high',
+                  metadata: {
+                    userId: 'webhook',
+                    orgId: data.orgId || 'webhook',
+                  },
                 });
               }
               break;
@@ -173,8 +196,15 @@ export class WorkerManager {
               // Sync list members
               if (data.list_id) {
                 await bulkQueue.add('sync-list', {
-                  operation: 'import_list',
-                  items: [{ listId: data.list_id }],
+                  id: `webhook-list-${Date.now()}`,
+                  operation: 'import',
+                  data: [{ listId: data.list_id }],
+                  options: {},
+                  metadata: {
+                    userId: 'webhook',
+                    orgId: data.orgId || 'webhook',
+                    source: 'webhook',
+                  },
                 });
               }
               break;

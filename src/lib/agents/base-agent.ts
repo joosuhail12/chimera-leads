@@ -221,7 +221,7 @@ export abstract class BaseAgent {
     const sharedContext = {
       ...task.context,
       requesting_agent: this.getName(),
-      shared_memory: this.memory.getContext(),
+      shared_memory: this.getMemoryContext(),
     };
 
     const collaborationTask = {

@@ -64,7 +64,7 @@ export function getRedisClient(): Redis {
       port: redisConfig.connection.port,
       password: redisConfig.connection.password,
       db: redisConfig.connection.db,
-      retryStrategy: (times) => {
+      retryStrategy: (times: number) => {
         const delay = Math.min(times * 50, 2000);
         console.log(`Redis retry attempt ${times}, waiting ${delay}ms`);
         return delay;
@@ -302,10 +302,10 @@ export const redisConnection = {
     return getRedisClient();
   },
   ping: () => getRedisClient().ping(),
-  info: (section?: string) => getRedisClient().info(section),
+  info: (section?: string) => section ? getRedisClient().info(section) : getRedisClient().info(),
   keys: (pattern: string) => getRedisClient().keys(pattern),
   get: (key: string) => getRedisClient().get(key),
   set: (key: string, value: string) => getRedisClient().set(key, value),
   del: (...keys: string[]) => getRedisClient().del(...keys),
-  client: (subcommand: string) => (getRedisClient() as any).client(subcommand),
+  clientCommand: (subcommand: string) => (getRedisClient() as unknown as { client: (cmd: string) => unknown }).client(subcommand),
 };

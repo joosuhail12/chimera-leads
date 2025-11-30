@@ -6,6 +6,7 @@ import ReactFlow, {
   Edge,
   addEdge,
   Background,
+  BackgroundVariant,
   Controls,
   MiniMap,
   useNodesState,
@@ -459,7 +460,7 @@ export function PlaybookBuilder({ initialPlaybook, onSave }: PlaybookBuilderProp
                 nodeTypes={nodeTypes}
                 fitView
               >
-                <Background variant="dots" gap={12} size={1} />
+                <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
                 <Controls />
                 <MiniMap />
               </ReactFlow>

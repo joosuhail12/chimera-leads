@@ -23,8 +23,9 @@ export interface BlockWarning {
  */
 export function validateBlock(block: TReaderBlock, blockId: string): BlockWarning[] {
   const warnings: BlockWarning[] = [];
-  const props = (block.data?.props ?? {}) as Record<string, unknown>;
-  const style = (block.data?.style ?? {}) as Record<string, unknown>;
+  const blockData = block.data as Record<string, unknown> | undefined;
+  const props = (blockData && 'props' in blockData ? blockData.props : {}) as Record<string, unknown>;
+  const style = (blockData && 'style' in blockData ? blockData.style : {}) as Record<string, unknown>;
 
   switch (block.type) {
     case "Button":
@@ -166,22 +167,6 @@ export function validateBlock(block: TReaderBlock, blockId: string): BlockWarnin
             message: "Script tags are not allowed in email HTML. They will be stripped by email clients.",
           });
         }
-      }
-      break;
-
-    case "List":
-      // Check for empty list
-      const items = props.items as string[] | undefined;
-      if (!items || items.length === 0) {
-        warnings.push({
-          id: `${blockId}-empty-list`,
-          blockId,
-          blockType: block.type,
-          severity: "warning",
-          title: "Empty list",
-          message: "This list doesn't have any items.",
-          actionLabel: "Add items",
-        });
       }
       break;
   }

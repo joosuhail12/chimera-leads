@@ -159,7 +159,8 @@ function checkContrast(
   block: TReaderBlock
 ): AccessibilityIssue[] {
   const issues: AccessibilityIssue[] = [];
-  const style = (block.data?.style ?? {}) as Record<string, unknown>;
+  const blockData = block.data as Record<string, unknown> | undefined;
+  const style = (blockData && 'style' in blockData ? blockData.style : {}) as Record<string, unknown>;
 
   // Only check blocks with text
   if (!["Heading", "Text", "Button", "List", "Callout", "Testimonial"].includes(block.type)) {
@@ -336,7 +337,8 @@ function checkFontSize(
   block: TReaderBlock
 ): AccessibilityIssue[] {
   const issues: AccessibilityIssue[] = [];
-  const style = (block.data?.style ?? {}) as Record<string, unknown>;
+  const blockData = block.data as Record<string, unknown> | undefined;
+  const style = (blockData && 'style' in blockData ? blockData.style : {}) as Record<string, unknown>;
 
   // Only check blocks with text
   if (!["Heading", "Text", "Button", "List", "Callout", "Testimonial"].includes(block.type)) {
@@ -461,6 +463,9 @@ function getChildren(document: TReaderDocument, parentId: string): string[] {
     return data?.childrenIds ?? [];
   }
   const block = document[parentId];
-  const props = (block?.data?.props ?? {}) as { childrenIds?: string[] };
-  return props.childrenIds ?? [];
+  const blockData = block?.data as Record<string, unknown> | undefined;
+  // Some block types have childrenIds at the top level, others have it in props
+  const childrenIds = blockData?.childrenIds as string[] | undefined
+    ?? (blockData?.props as { childrenIds?: string[] } | undefined)?.childrenIds;
+  return childrenIds ?? [];
 }

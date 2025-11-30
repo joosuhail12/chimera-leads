@@ -231,8 +231,9 @@ export function getImageDefaults(context: BlockContext): Partial<TReaderBlock["d
 
 /**
  * Get smart defaults for a list block
+ * Note: List is a custom block type not in the standard library
  */
-export function getListDefaults(context: BlockContext): Partial<TReaderBlock["data"]> {
+export function getListDefaults(context: BlockContext): Record<string, unknown> {
   const { previousBlock } = context;
 
   // After heading = feature list
@@ -270,8 +271,9 @@ export function getListDefaults(context: BlockContext): Partial<TReaderBlock["da
 
 /**
  * Get smart defaults for a callout block
+ * Note: Callout is a custom block type not in the standard library
  */
-export function getCalloutDefaults(context: BlockContext): Partial<TReaderBlock["data"]> {
+export function getCalloutDefaults(context: BlockContext): Record<string, unknown> {
   const { position } = context;
 
   // Early in email = important announcement
@@ -309,8 +311,9 @@ export function getCalloutDefaults(context: BlockContext): Partial<TReaderBlock[
 
 /**
  * Get smart defaults for a testimonial block
+ * Note: Testimonial is a custom block type not in the standard library
  */
-export function getTestimonialDefaults(context: BlockContext): Partial<TReaderBlock["data"]> {
+export function getTestimonialDefaults(context: BlockContext): Record<string, unknown> {
   return {
     props: {
       quote: "This product has transformed the way we work. The team is more productive and our customers are happier.",
@@ -367,9 +370,10 @@ export function applySmartDefaults(
   block: TReaderBlock,
   context: BlockContext
 ): TReaderBlock {
-  let defaults: Partial<TReaderBlock["data"]> = {};
+  let defaults: Record<string, unknown> = {};
+  const blockType = block.type as string;
 
-  switch (block.type) {
+  switch (blockType) {
     case "Heading":
       defaults = getHeadingDefaults(context);
       break;
@@ -400,28 +404,35 @@ export function applySmartDefaults(
   }
 
   // Merge defaults with existing block data
+  const blockData = block.data as Record<string, unknown> | undefined;
+  const defaultProps = defaults.props as Record<string, unknown> | undefined;
+  const defaultStyle = defaults.style as Record<string, unknown> | undefined;
+  const existingProps = blockData?.props as Record<string, unknown> | undefined;
+  const existingStyle = blockData?.style as Record<string, unknown> | undefined;
+
   return {
     ...block,
     data: {
       ...defaults,
       ...block.data,
       props: {
-        ...defaults.props,
-        ...block.data?.props,
+        ...defaultProps,
+        ...existingProps,
       },
       style: {
-        ...defaults.style,
-        ...block.data?.style,
+        ...defaultStyle,
+        ...existingStyle,
       },
     },
-  };
+  } as TReaderBlock;
 }
 
 /**
  * Check if a block has default/placeholder content
  */
 export function hasPlaceholderContent(block: TReaderBlock): boolean {
-  const props = (block.data?.props ?? {}) as Record<string, unknown>;
+  const blockData = block.data as Record<string, unknown> | undefined;
+  const props = (blockData && 'props' in blockData ? blockData.props : {}) as Record<string, unknown>;
 
   const placeholderTexts = [
     "Add a heading",
@@ -445,6 +456,9 @@ function getChildren(document: TReaderDocument, parentId: string): string[] {
     return data?.childrenIds ?? [];
   }
   const block = document[parentId];
-  const props = (block?.data?.props ?? {}) as { childrenIds?: string[] };
-  return props.childrenIds ?? [];
+  const blockData = block?.data as Record<string, unknown> | undefined;
+  // Some block types have childrenIds at the top level, others have it in props
+  const childrenIds = blockData?.childrenIds as string[] | undefined
+    ?? (blockData?.props as { childrenIds?: string[] } | undefined)?.childrenIds;
+  return childrenIds ?? [];
 }

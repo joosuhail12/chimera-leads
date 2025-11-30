@@ -151,7 +151,7 @@ export async function GET(request: NextRequest) {
         memoryUsage: usedMemory,
         maxMemory: maxMemory || undefined,
         cacheEntries: cacheKeys.length,
-        connectedClients: await redisConnection.client('list').then((list: string) => list.split('\n').length - 1),
+        connectedClients: await (redisConnection.clientCommand('list') as Promise<string>).then((list: string) => list.split('\n').length - 1),
       },
     };
 

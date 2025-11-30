@@ -297,9 +297,11 @@ export function PlaybookTemplates({ onCreatePlaybook }: PlaybookTemplatesProps) 
                         {getCategoryIcon(template.category)}
                         <span className="ml-1">{template.category}</span>
                       </Badge>
-                      <Badge className={`text-xs ${getDifficultyColor(template.difficulty)}`}>
-                        {template.difficulty}
-                      </Badge>
+                      {template.difficulty && (
+                        <Badge className={`text-xs ${getDifficultyColor(template.difficulty)}`}>
+                          {template.difficulty}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -317,7 +319,7 @@ export function PlaybookTemplates({ onCreatePlaybook }: PlaybookTemplatesProps) 
                 </div>
                 <div className="flex items-center gap-1">
                   <Zap className="h-3 w-3" />
-                  {template.playbook.steps.length} steps
+                  {template.playbook.steps?.length ?? 0} steps
                 </div>
               </div>
             </CardContent>
@@ -387,7 +389,7 @@ export function PlaybookTemplates({ onCreatePlaybook }: PlaybookTemplatesProps) 
                 <div>
                   <Label className="text-sm font-medium mb-2">Playbook Steps</Label>
                   <div className="space-y-2 bg-gray-50 rounded-lg p-4">
-                    {selectedTemplate.playbook.steps.map((step, index) => (
+                    {selectedTemplate.playbook.steps?.map((step, index) => (
                       <div key={step.id} className="flex items-center gap-3">
                         <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-medium">
                           {index + 1}

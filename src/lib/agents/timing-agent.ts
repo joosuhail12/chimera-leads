@@ -154,14 +154,14 @@ const TimezonePredictorTool: AgentTool = {
 
     // Analyze LinkedIn activity patterns
     if (params.linkedin_activity && params.linkedin_activity.length > 5) {
-      const activityHours = params.linkedin_activity.map(a => {
+      const activityHours = params.linkedin_activity.map((a: { timestamp: string; type: string }) => {
         const date = new Date(a.timestamp);
         return date.getUTCHours();
       });
 
       // Find most common activity hours (in UTC)
       const hourCounts: Record<number, number> = {};
-      activityHours.forEach(h => {
+      activityHours.forEach((h: number) => {
         hourCounts[h] = (hourCounts[h] || 0) + 1;
       });
 
@@ -205,13 +205,15 @@ const OptimalTimeTool: AgentTool = {
     const options: Intl.DateTimeFormatOptions = {
       timeZone: params.timezone,
       hour: 'numeric',
-      weekday: 'numeric'
     };
 
     const formatter = new Intl.DateTimeFormat('en-US', options);
     const parts = formatter.formatToParts(now);
     const currentHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
-    const currentDay = parseInt(parts.find(p => p.type === 'weekday')?.value || '0');
+    // Get the day of week in the target timezone by creating a date string and parsing it
+    const tzDateStr = now.toLocaleString('en-US', { timeZone: params.timezone, weekday: 'short' });
+    const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    const currentDay = dayMap[tzDateStr.split(',')[0]] ?? now.getDay();
 
     // Default best times if not provided
     const bestHours = params.best_hours?.length ? params.best_hours : [10, 14, 9]; // 10am, 2pm, 9am

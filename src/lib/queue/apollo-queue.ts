@@ -386,7 +386,7 @@ export function initializeQueueWorkers() {
     redisConfig.queues.enrichment,
     async (job) => {
       const apolloService = new ApolloService();
-      const supabase = createClient();
+      const supabase = await createClient();
       const { type, identifier, metadata } = job.data;
 
       try {
@@ -453,7 +453,7 @@ export function initializeQueueWorkers() {
   const webhookWorker = new Worker<WebhookJob>(
     redisConfig.queues.webhooks,
     async (job) => {
-      const supabase = createClient();
+      const supabase = await createClient();
       const { webhookId, eventType, eventData, orgId } = job.data;
 
       try {
@@ -526,7 +526,7 @@ export function initializeQueueWorkers() {
     redisConfig.queues.scoring,
     async (job) => {
       const scoringService = new AILeadScoringService();
-      const supabase = createClient();
+      const supabase = await createClient();
       const { leadId, leadData, metadata } = job.data;
 
       try {

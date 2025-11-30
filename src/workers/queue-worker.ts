@@ -94,15 +94,16 @@ const enrichmentWorker = new Worker<EnrichmentJob>(
       if (metadata.leadId && result) {
         await job.updateProgress(70);
 
-        const updateData: any = {};
+        const updateData: Record<string, unknown> = {};
+        const typedResult = result as { person?: unknown; company?: unknown };
 
         if (type === 'person' || type === 'both') {
-          updateData.apollo_data = result.person || result;
+          updateData.apollo_data = typedResult.person || result;
           updateData.enriched_at = new Date().toISOString();
         }
 
         if (type === 'company' || type === 'both') {
-          updateData.company_apollo_data = result.company || result;
+          updateData.company_apollo_data = typedResult.company || result;
           updateData.company_enriched_at = new Date().toISOString();
         }
 

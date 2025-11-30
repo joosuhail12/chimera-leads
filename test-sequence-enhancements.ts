@@ -244,15 +244,15 @@ testWindows.forEach(({ name, rule, testTime, shouldExecute }) => {
   // Mock the current time for testing
   const originalDate = Date;
   global.Date = class extends originalDate {
-    constructor(...args: any[]) {
-      if (args.length === 0) {
+    constructor(value?: string | number | Date) {
+      if (value === undefined) {
         super(testTime.getTime());
       } else {
-        super(...args);
+        super(value as string | number);
       }
     }
     static now() { return testTime.getTime(); }
-  } as any;
+  } as DateConstructor;
 
   const inWindow = (AutoEnrollmentEngine as any).isInExecutionWindow(rule);
 

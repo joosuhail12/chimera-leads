@@ -516,7 +516,7 @@ export const playbookTemplates: PlaybookTemplate[] = [
           config: {
             type: 'wait',
             duration: {
-              value: '{{followUpDelay}}',
+              value: 24 as number, // Template placeholder: {{followUpDelay}} hours - replaced at runtime
               unit: 'hours',
             },
             skipWeekends: false,
@@ -706,7 +706,7 @@ export const playbookTemplates: PlaybookTemplate[] = [
               index: 'index',
             },
             steps: ['enrich-single', 'update-score'],
-            maxIterations: '{{batchSize}}',
+            maxIterations: 100, // Template placeholder: {{batchSize}} - replaced at runtime
           },
           errorHandling: {
             strategy: 'continue',

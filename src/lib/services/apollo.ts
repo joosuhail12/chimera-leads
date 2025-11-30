@@ -469,7 +469,7 @@ export class ApolloService {
             priority,
             metadata: {
                 userId: 'system',
-                orgId: this.organizationId,
+                orgId: this.organizationId || 'default',
             },
         }));
 
