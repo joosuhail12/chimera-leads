@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
             totals.errors.push({
               row: index + 1,
               field: result.field ?? 'unknown',
-              message: result.message,
+              message: result.message ?? 'Unknown error',
             });
           }
 

@@ -26,7 +26,7 @@ export type ListBlockData = {
   };
 };
 
-export type ListBlock = TReaderBlock & {
+export type ListBlock = Omit<TReaderBlock, 'type' | 'data'> & {
   type: "List";
   data: ListBlockData;
 };

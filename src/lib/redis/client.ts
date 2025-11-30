@@ -292,3 +292,20 @@ export async function closeRedisConnection(): Promise<void> {
     redis = null;
   }
 }
+
+/**
+ * Export a lazy-initialized redis connection for direct usage
+ * Use getRedisClient() for more control over initialization
+ */
+export const redisConnection = {
+  get client() {
+    return getRedisClient();
+  },
+  ping: () => getRedisClient().ping(),
+  info: (section?: string) => getRedisClient().info(section),
+  keys: (pattern: string) => getRedisClient().keys(pattern),
+  get: (key: string) => getRedisClient().get(key),
+  set: (key: string, value: string) => getRedisClient().set(key, value),
+  del: (...keys: string[]) => getRedisClient().del(...keys),
+  client: (subcommand: string) => (getRedisClient() as any).client(subcommand),
+};

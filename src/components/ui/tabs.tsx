@@ -11,14 +11,29 @@ const TabsContext = createContext<TabsContextType | null>(null);
 
 export function Tabs({
     defaultValue,
+    value,
+    onValueChange,
     children,
     className = "",
 }: {
-    defaultValue: string;
+    defaultValue?: string;
+    value?: string;
+    onValueChange?: (value: string) => void;
     children: ReactNode;
     className?: string;
 }) {
-    const [activeTab, setActiveTab] = useState(defaultValue);
+    const [internalActiveTab, setInternalActiveTab] = useState(defaultValue ?? value ?? "");
+
+    // Support both controlled and uncontrolled modes
+    const activeTab = value !== undefined ? value : internalActiveTab;
+    const setActiveTab = (newValue: string) => {
+        if (onValueChange) {
+            onValueChange(newValue);
+        }
+        if (value === undefined) {
+            setInternalActiveTab(newValue);
+        }
+    };
 
     return (
         <TabsContext.Provider value={{ activeTab, setActiveTab }}>

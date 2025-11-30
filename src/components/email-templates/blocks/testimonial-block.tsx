@@ -30,7 +30,7 @@ export type TestimonialBlockData = {
   };
 };
 
-export type TestimonialBlock = TReaderBlock & {
+export type TestimonialBlock = Omit<TReaderBlock, 'type' | 'data'> & {
   type: "Testimonial";
   data: TestimonialBlockData;
 };

@@ -580,3 +580,27 @@ export function initializeQueueWorkers() {
 
 // Export singleton instance
 export const queueManager = new QueueManager();
+
+// Export direct queue instances for use in health checks and other modules
+const queueConnection = {
+  host: redisConfig.connection.host,
+  port: redisConfig.connection.port,
+  password: redisConfig.connection.password,
+  db: redisConfig.connection.db,
+};
+
+export const enrichmentQueue = new Queue<EnrichmentJob>(redisConfig.queues.enrichment, {
+  connection: queueConnection,
+});
+
+export const bulkQueue = new Queue<BulkJob>(redisConfig.queues.bulk, {
+  connection: queueConnection,
+});
+
+export const webhookQueue = new Queue<WebhookJob>(redisConfig.queues.webhooks, {
+  connection: queueConnection,
+});
+
+export const scoringQueue = new Queue<ScoringJob>(redisConfig.queues.scoring, {
+  connection: queueConnection,
+});

@@ -24,7 +24,7 @@ export type TwoColumnBlockData = {
   };
 };
 
-export type TwoColumnBlock = TReaderBlock & {
+export type TwoColumnBlock = Omit<TReaderBlock, 'type' | 'data'> & {
   type: "Container"; // Uses Container type with special childrenIds
   data: TwoColumnBlockData & {
     props: TwoColumnBlockData["props"] & {
@@ -40,7 +40,7 @@ export type TwoColumnBlock = TReaderBlock & {
  */
 export function createTwoColumnBlock(): {
   rootId: string;
-  nodes: Record<string, TReaderBlock>;
+  nodes: Record<string, unknown>;
 } {
   const rootId = `two-col-${Date.now()}`;
   const leftId = `left-col-${Date.now()}`;

@@ -6,14 +6,14 @@ const VALID_QUEUES = new Set(['enrichment', 'bulk', 'webhooks', 'scoring']);
 
 export async function POST(
   _: Request,
-  { params }: { params: { queue: string } }
+  { params }: { params: Promise<{ queue: string }> }
 ) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const queueName = params.queue;
+  const { queue: queueName } = await params;
   if (!VALID_QUEUES.has(queueName)) {
     return NextResponse.json({ error: 'Invalid queue name' }, { status: 400 });
   }

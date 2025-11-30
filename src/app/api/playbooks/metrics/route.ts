@@ -60,9 +60,12 @@ export async function GET() {
           )
         : 0;
 
-    const recentExecutions = (executions || []).map((exec) => ({
+    const recentExecutions = (executions || []).map((exec) => {
+      const playbookData = exec.playbook as { name: string }[] | { name: string } | null;
+      const playbookName = Array.isArray(playbookData) ? playbookData[0]?.name : playbookData?.name;
+      return {
       id: exec.id,
-      name: exec.playbook?.name || 'Playbook run',
+      name: playbookName || 'Playbook run',
       status: exec.status,
       startedAt: exec.started_at,
       duration: exec.started_at && exec.completed_at
@@ -71,7 +74,8 @@ export async function GET() {
       itemsProcessed: exec.leads_processed ?? 0,
       leadsEnrolled: exec.leads_enrolled ?? 0,
       error: exec.error_message || null,
-    }));
+    };
+    });
 
     return NextResponse.json({
       active,

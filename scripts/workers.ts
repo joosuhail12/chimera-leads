@@ -267,38 +267,56 @@ program
 
       // Add test enrichment job
       const enrichJob = await enrichmentQueue.add('test-enrich', {
+        id: `test-enrich-${Date.now()}`,
         type: 'person',
         identifier: 'test@example.com',
-        metadata: { test: true },
+        priority: 'normal',
+        metadata: {
+          userId: 'test-user',
+          orgId: 'test-org',
+        },
       });
       console.log(chalk.green(`✅ Added enrichment job: ${enrichJob.id}`));
 
       // Add test bulk job
       const bulkJob = await bulkQueue.add('test-bulk', {
-        operation: 'enrich_people',
-        items: [
+        id: `test-bulk-${Date.now()}`,
+        operation: 'enrich',
+        data: [
           { email: 'test1@example.com' },
           { email: 'test2@example.com' },
         ],
-        options: { useCache: true },
+        options: { batchSize: 10 },
+        metadata: {
+          userId: 'test-user',
+          orgId: 'test-org',
+        },
       });
       console.log(chalk.green(`✅ Added bulk job: ${bulkJob.id}`));
 
       // Add test webhook job
       const webhookJob = await webhookQueue.add('test-webhook', {
-        event: 'test.event',
-        data: { message: 'Test webhook' },
+        id: `test-webhook-${Date.now()}`,
+        webhookId: 'test-webhook-id',
+        eventType: 'test.event',
+        eventData: { message: 'Test webhook' },
+        orgId: 'test-org',
       });
       console.log(chalk.green(`✅ Added webhook job: ${webhookJob.id}`));
 
       // Add test scoring job
       const scoringJob = await scoringQueue.add('test-score', {
+        id: `test-score-${Date.now()}`,
         leadId: 'test-lead-123',
-        data: {
+        leadData: {
           name: 'Test Lead',
           email: 'test@example.com',
           title: 'Test Title',
           company: 'Test Company',
+        },
+        metadata: {
+          userId: 'test-user',
+          orgId: 'test-org',
         },
       });
       console.log(chalk.green(`✅ Added scoring job: ${scoringJob.id}`));

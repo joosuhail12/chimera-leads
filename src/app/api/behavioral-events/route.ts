@@ -109,8 +109,8 @@ export async function POST(request: NextRequest) {
       const enrichedEvent = {
         ...validated,
         source: validated.source || 'api',
-        ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
-        user_agent: request.headers.get('user-agent'),
+        ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+        user_agent: request.headers.get('user-agent') || undefined,
       };
 
       const eventId = await BehavioralTriggersService.trackEvent(
@@ -266,7 +266,7 @@ export async function trackContentEngagement(
 ) {
   return BehavioralTriggersService.trackEvent(
     {
-      event_type: `${type}_${engagementData.completion_percentage >= 80 ? 'watched' : 'viewed'}`,
+      event_type: `${type}_${(engagementData.completion_percentage ?? 0) >= 80 ? 'watched' : 'viewed'}`,
       event_data: {
         content_id: contentId,
         ...engagementData,

@@ -26,7 +26,7 @@ export type CalloutBlockData = {
   };
 };
 
-export type CalloutBlock = TReaderBlock & {
+export type CalloutBlock = Omit<TReaderBlock, 'type' | 'data'> & {
   type: "Callout";
   data: CalloutBlockData;
 };
