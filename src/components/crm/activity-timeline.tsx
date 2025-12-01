@@ -43,7 +43,8 @@ interface Activity {
 }
 
 interface ActivityTimelineProps {
-    leadId: string;
+    entityId: string;
+    entityType: "lead" | "contact" | "account";
     activities: Activity[];
 }
 

@@ -37,8 +37,7 @@ export async function register() {
     console.error('❌ Failed to initialize Apollo queue workers:', error);
 
     if (process.env.NODE_ENV === 'production') {
-      console.error('Fatal: Cannot start without queue workers in production');
-      process.exit(1);
+      throw new Error('Fatal: Cannot start without queue workers in production');
     }
   }
 }
