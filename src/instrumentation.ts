@@ -4,6 +4,18 @@ export async function register() {
     return;
   }
 
+  const shouldEnableWorkersExplicitly = process.env.ENABLE_APOLLO_WORKERS === 'true';
+  const isHostedServerless = process.env.VERCEL === '1';
+  const shouldEnableByDefault = process.env.NODE_ENV === 'development' && !isHostedServerless;
+  const shouldInitializeWorkers = shouldEnableWorkersExplicitly || shouldEnableByDefault;
+
+  if (!shouldInitializeWorkers) {
+    console.log(
+      'ℹ️ Skipping Apollo worker initialization (set ENABLE_APOLLO_WORKERS=true to override).'
+    );
+    return;
+  }
+
   const { initializeWorkers } = await import('@/lib/queue/worker-manager');
 
   // Avoid re-initializing workers during local dev hot reloads

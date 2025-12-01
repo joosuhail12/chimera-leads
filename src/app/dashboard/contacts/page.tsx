@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Plus } from "lucide-react";
+import { AlertTriangle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth } from "@clerk/nextjs/server";
 import { CreateContactSheet } from "@/components/crm/create-contact-sheet";
@@ -43,11 +43,18 @@ export default async function ContactsPage() {
         .order("created_at", { ascending: false })
         .limit(100);
 
+    let loadWarning: string | null = null;
     if (error) {
-        throw new Error(`Failed to load contacts: ${error.message}`);
+        const missingTable = error.message?.includes("sales_contacts");
+        if (missingTable) {
+            loadWarning =
+                "Contacts table not found in Supabase. Run the CRM migrations (e.g., 0029_add_crm_core_tables.sql) to enable contacts.";
+        } else {
+            throw new Error(`Failed to load contacts: ${error.message}`);
+        }
     }
 
-    const contacts = (data ?? []) as ContactRow[];
+    const contacts = error ? ([] as ContactRow[]) : ((data ?? []) as ContactRow[]);
 
     return (
         <div className="space-y-6">
@@ -67,6 +74,18 @@ export default async function ContactsPage() {
                     {userId && <CreateContactSheet userId={userId} orgId={orgId ?? userId} />}
                 </div>
             </header>
+
+            {loadWarning && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+                    <div className="flex items-start gap-3">
+                        <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                        <div>
+                            <p className="text-sm font-semibold">Contacts schema unavailable</p>
+                            <p className="text-sm">{loadWarning}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
