@@ -36,7 +36,7 @@ export class WorkerManager {
 
     // Enrichment Worker
     const enrichmentWorker = new Worker(
-      'apollo:enrichment',
+      redisConfig.queues.enrichment,
       async (job: Job) => {
         console.log(`Processing enrichment job ${job.id}`);
         const { type, identifier, metadata } = job.data;
@@ -91,7 +91,7 @@ export class WorkerManager {
 
     // Bulk Processing Worker
     const bulkWorker = new Worker(
-      'apollo:bulk',
+      redisConfig.queues.bulk,
       async (job: Job) => {
         console.log(`Processing bulk job ${job.id}`);
         const { operation, items, options } = job.data;
@@ -143,7 +143,7 @@ export class WorkerManager {
 
     // Webhook Processing Worker
     const webhookWorker = new Worker(
-      'apollo:webhooks',
+      redisConfig.queues.webhooks,
       async (job: Job) => {
         console.log(`Processing webhook ${job.id}`);
         const { event, data } = job.data;
@@ -227,7 +227,7 @@ export class WorkerManager {
 
     // Lead Scoring Worker
     const scoringWorker = new Worker(
-      'apollo:scoring',
+      redisConfig.queues.scoring,
       async (job: Job) => {
         console.log(`Processing scoring job ${job.id}`);
         const { leadId, data, options } = job.data;
@@ -402,12 +402,16 @@ export class WorkerManager {
    */
   private async getQueueByName(name: string): Promise<any> {
     switch (name) {
+      case redisConfig.queues.enrichment:
       case 'apollo:enrichment':
         return enrichmentQueue;
+      case redisConfig.queues.bulk:
       case 'apollo:bulk':
         return bulkQueue;
+      case redisConfig.queues.webhooks:
       case 'apollo:webhooks':
         return webhookQueue;
+      case redisConfig.queues.scoring:
       case 'apollo:scoring':
         return scoringQueue;
       default:
