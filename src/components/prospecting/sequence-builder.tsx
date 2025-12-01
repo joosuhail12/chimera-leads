@@ -287,7 +287,7 @@ export function SequenceBuilder() {
     setIsBuilding(true);
 
     try {
-      const response = await fetch('/api/sequences', {
+      const response = await fetch(sequence.id ? `/api/sequences/${sequence.id}` : '/api/sequences', {
         method: sequence.id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sequence),
@@ -478,9 +478,8 @@ export function SequenceBuilder() {
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
-                                className={`border rounded-lg p-4 ${
-                                  snapshot.isDragging ? 'shadow-lg' : ''
-                                } ${selectedStep === step.id ? 'border-blue-500 bg-blue-50' : ''}`}
+                                className={`border rounded-lg p-4 ${snapshot.isDragging ? 'shadow-lg' : ''
+                                  } ${selectedStep === step.id ? 'border-blue-500 bg-blue-50' : ''}`}
                                 onClick={() => setSelectedStep(step.id)}
                               >
                                 <div className="flex items-start justify-between">

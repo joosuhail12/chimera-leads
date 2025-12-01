@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
+  Building2,
 } from "lucide-react";
 
 interface DashboardShellProps {
@@ -112,6 +113,24 @@ const secondaryNavItems: Record<
   ],
   crm: [
     {
+      label: "Leads",
+      description: "Manage potential customers",
+      href: "/dashboard/leads",
+      icon: Users,
+    },
+    {
+      label: "Contacts",
+      description: "People at accounts",
+      href: "/dashboard/contacts",
+      icon: Users,
+    },
+    {
+      label: "Accounts",
+      description: "Organizations & companies",
+      href: "/dashboard/accounts",
+      icon: Building2,
+    },
+    {
       label: "Pipeline",
       description: "Drag & drop deal stages",
       href: "/dashboard/pipeline",
@@ -180,6 +199,10 @@ function getSectionFromPath(pathname: string): NavSection {
     return "marketing";
   }
   if (pathname.startsWith("/dashboard/pipeline") ||
+    pathname.startsWith("/dashboard/leads") ||
+    pathname.startsWith("/dashboard/contacts") ||
+    pathname.startsWith("/dashboard/accounts") ||
+    pathname.startsWith("/dashboard/sequences") ||
     pathname.startsWith("/dashboard/custom-fields")) {
     return "crm";
   }
@@ -248,8 +271,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
                   key={item.id}
                   onClick={() => handleMainSectionClick(item.id as NavSection, item.path)}
                   className={`group relative flex h-12 w-full items-center justify-center rounded-xl transition-all duration-200 ${isActive
-                      ? "bg-sky-50 text-sky-600 shadow-sm"
-                      : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+                    ? "bg-sky-50 text-sky-600 shadow-sm"
+                    : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
                     }`}
                   title={item.label}
                 >
@@ -299,8 +322,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
                     key={item.href}
                     href={item.href}
                     className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${isActive
-                        ? "bg-white text-sky-700 shadow-sm ring-1 ring-slate-200"
-                        : "text-slate-500 hover:bg-white/60 hover:text-slate-700"
+                      ? "bg-white text-sky-700 shadow-sm ring-1 ring-slate-200"
+                      : "text-slate-500 hover:bg-white/60 hover:text-slate-700"
                       }`}
                   >
                     <item.icon className={`h-4 w-4 ${isActive ? "text-sky-500" : "text-slate-400"}`} />

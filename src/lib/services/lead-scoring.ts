@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { CacheManager, redisConfig } from '@/lib/redis/client';
+import { openai } from '@/lib/ai/client';
 
 // Define scoring interfaces
 export interface LeadProfile {
@@ -496,9 +497,56 @@ export class AILeadScoringService {
     score: number,
     factors: ScoreFactor[]
   ): Promise<{ insights: string; recommendations: string[] }> {
-    // In a production environment, this would call OpenAI API
-    // For now, we'll generate insights based on the score and factors
+    try {
+      if (!process.env.OPENAI_API_KEY) {
+        // Fallback to rule-based insights if no API key
+        return this.getRuleBasedInsights(lead, score, factors);
+      }
 
+      const prompt = `Analyze this lead and provide scoring insights.
+      
+      Lead Profile:
+      - Title: ${lead.title}
+      - Company: ${lead.company}
+      - Industry: ${lead.companyApolloData?.industry}
+      - Employees: ${lead.companyApolloData?.employee_count}
+      - Score: ${score}/100
+      - Key Factors: ${factors.map(f => `${f.factor} (${f.score}pts): ${f.reason}`).join(', ')}
+      
+      Provide:
+      1. A concise 2-sentence insight summary.
+      2. 3 specific, actionable recommendations for the sales team.
+      
+      Output JSON:
+      {
+        "insights": "string",
+        "recommendations": ["string"]
+      }`;
+
+      const completion = await openai.chat.completions.create({
+        messages: [
+          { role: "system", content: "You are a sales operations expert." },
+          { role: "user", content: prompt }
+        ],
+        model: "gpt-4o",
+        response_format: { type: "json_object" },
+      });
+
+      const content = completion.choices[0].message.content;
+      if (!content) throw new Error('No content');
+
+      return JSON.parse(content);
+    } catch (error) {
+      console.error('AI Insight generation failed:', error);
+      return this.getRuleBasedInsights(lead, score, factors);
+    }
+  }
+
+  private getRuleBasedInsights(
+    lead: LeadProfile,
+    score: number,
+    factors: ScoreFactor[]
+  ): { insights: string; recommendations: string[] } {
     const topFactors = factors
       .sort((a, b) => b.score - a.score)
       .slice(0, 3)
@@ -590,13 +638,13 @@ export class AILeadScoringService {
 
     // C-Level
     if (lowerTitle.includes('ceo') || lowerTitle.includes('cto') ||
-        lowerTitle.includes('cfo') || lowerTitle.includes('chief')) {
+      lowerTitle.includes('cfo') || lowerTitle.includes('chief')) {
       return 35;
     }
 
     // VP Level
     if (lowerTitle.includes('vp') || lowerTitle.includes('vice president') ||
-        lowerTitle.includes('head of')) {
+      lowerTitle.includes('head of')) {
       return 30;
     }
 

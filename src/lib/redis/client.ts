@@ -13,8 +13,9 @@ export interface RedisConfig {
   queues: {
     enrichment: string;
     bulk: string;
-    webhooks: string;
-    scoring: string;
+    webhooks: 'apollo-webhooks';
+    scoring: 'ai-scoring';
+    sequences: 'sequence-execution';
   };
   cache: {
     ttl: {
@@ -39,6 +40,7 @@ export const redisConfig: RedisConfig = {
     bulk: 'apollo-bulk',
     webhooks: 'apollo-webhooks',
     scoring: 'ai-scoring',
+    sequences: 'sequence-execution',
   },
   cache: {
     ttl: {

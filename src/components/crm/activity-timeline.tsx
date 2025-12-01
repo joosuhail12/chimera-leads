@@ -63,7 +63,7 @@ const ACTIVITY_COLORS = {
     status_change: "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
 };
 
-export function ActivityTimeline({ leadId, activities }: ActivityTimelineProps) {
+export function ActivityTimeline({ entityId, entityType, activities }: ActivityTimelineProps) {
     const router = useRouter();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,19 +74,23 @@ export function ActivityTimeline({ leadId, activities }: ActivityTimelineProps) 
         setIsSubmitting(true);
 
         const formData = new FormData(e.currentTarget);
-        const data = {
-            lead_id: leadId,
+
+        const payload: any = {
             type: newActivityType,
             content: formData.get("content"),
             outcome: formData.get("outcome"),
             occurred_at: new Date().toISOString(),
         };
 
+        if (entityType === "lead") payload.lead_id = entityId;
+        if (entityType === "contact") payload.contact_id = entityId;
+        if (entityType === "account") payload.account_id = entityId;
+
         try {
             const res = await fetch("/api/crm/activities", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data),
+                body: JSON.stringify(payload),
             });
 
             if (!res.ok) throw new Error("Failed to create activity");

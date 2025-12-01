@@ -53,6 +53,25 @@ export interface ScoringJob {
   };
 }
 
+export interface SequenceJob {
+  id: string;
+  type: 'email' | 'task' | 'wait' | 'condition';
+  enrollmentId: string;
+  stepId: string;
+  executionId: string;
+  data: {
+    emailSubject?: string;
+    emailBody?: string;
+    taskTitle?: string;
+    taskDescription?: string;
+    waitDuration?: number;
+  };
+  metadata: {
+    orgId: string;
+    userId?: string;
+  };
+}
+
 /**
  * Queue Manager for Apollo operations
  */
@@ -61,6 +80,7 @@ export class QueueManager {
   private bulkQueue: Queue<BulkJob>;
   private webhookQueue: Queue<WebhookJob>;
   private scoringQueue: Queue<ScoringJob>;
+  private sequenceQueue: Queue<SequenceJob>;
 
   constructor() {
     const connection = {
@@ -119,6 +139,19 @@ export class QueueManager {
         backoff: {
           type: 'exponential',
           delay: 3000,
+        },
+      },
+    });
+
+    this.sequenceQueue = new Queue<SequenceJob>(redisConfig.queues.sequences, {
+      connection,
+      defaultJobOptions: {
+        removeOnComplete: { count: 100 },
+        removeOnFail: { count: 50 },
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
         },
       },
     });
@@ -185,6 +218,20 @@ export class QueueManager {
   }
 
   /**
+   * Add sequence job
+   */
+  async addSequenceJob(job: SequenceJob): Promise<string> {
+    const queuedJob = await this.sequenceQueue.add(
+      `sequence-${job.type}-${job.enrollmentId}-${job.stepId}`,
+      job,
+      {
+        priority: 1,
+      }
+    );
+    return queuedJob.id || '';
+  }
+
+  /**
    * Promote job to higher priority
    */
   async promoteJob(queueName: string, jobId: string): Promise<void> {
@@ -230,6 +277,7 @@ export class QueueManager {
       this.getQueueStats(this.bulkQueue, 'bulk'),
       this.getQueueStats(this.webhookQueue, 'webhooks'),
       this.getQueueStats(this.scoringQueue, 'scoring'),
+      this.getQueueStats(this.sequenceQueue, 'sequences'),
     ]);
 
     return Object.fromEntries(metrics);
@@ -241,7 +289,7 @@ export class QueueManager {
   async clearFailedJobs(queueName?: string): Promise<number> {
     const queues = queueName
       ? [this.getQueueByName(queueName)]
-      : [this.enrichmentQueue, this.bulkQueue, this.webhookQueue, this.scoringQueue];
+      : [this.enrichmentQueue, this.bulkQueue, this.webhookQueue, this.scoringQueue, this.sequenceQueue];
 
     let totalCleared = 0;
     for (const queue of queues) {
@@ -261,7 +309,7 @@ export class QueueManager {
   async retryFailedJobs(queueName?: string): Promise<number> {
     const queues = queueName
       ? [this.getQueueByName(queueName)]
-      : [this.enrichmentQueue, this.bulkQueue, this.webhookQueue, this.scoringQueue];
+      : [this.enrichmentQueue, this.bulkQueue, this.webhookQueue, this.scoringQueue, this.sequenceQueue];
 
     let retried = 0;
     for (const queue of queues) {
@@ -309,6 +357,8 @@ export class QueueManager {
         return this.webhookQueue;
       case 'scoring':
         return this.scoringQueue;
+      case 'sequences':
+        return this.sequenceQueue;
       default:
         return null;
     }
@@ -366,6 +416,7 @@ export class QueueManager {
       this.bulkQueue.close(),
       this.webhookQueue.close(),
       this.scoringQueue.close(),
+      this.sequenceQueue.close(),
     ]);
   }
 }
@@ -560,8 +611,185 @@ export function initializeQueueWorkers() {
     }
   );
 
+  // Sequence Worker
+  const sequenceWorker = new Worker<SequenceJob>(
+    redisConfig.queues.sequences,
+    async (job) => {
+      const supabase = await createClient();
+      const { enrollmentId, stepId, executionId, type, data } = job.data;
+
+      try {
+        // 1. Execute the step
+        if (type === 'email') {
+          // TODO: Integrate with actual email provider (Gmail/Outlook/SES)
+          console.log(`Sending email for enrollment ${enrollmentId}: ${data.emailSubject}`);
+
+          // Simulate sending delay
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          // Log email event
+          await supabase.from('sequence_email_events').insert({
+            execution_id: executionId,
+            enrollment_id: enrollmentId,
+            event_type: 'open', // Mock event for testing
+          });
+        } else if (type === 'task') {
+          // Create CRM task
+          await supabase.from('crm_tasks').insert({
+            title: data.taskTitle,
+            description: data.taskDescription,
+            status: 'pending',
+            priority: 'medium',
+            // Assign to user if possible
+          });
+        }
+
+        // 2. Update execution status
+        await supabase
+          .from('sequence_step_executions')
+          .update({
+            status: 'success',
+            executed_at: new Date().toISOString(),
+          })
+          .eq('id', executionId);
+
+        // 3. Advance enrollment to next step
+        // Fetch current step number
+        const { data: currentStep } = await supabase
+          .from('sequence_steps')
+          .select('step_number, template_id')
+          .eq('id', stepId)
+          .single();
+
+        if (currentStep) {
+          // Find next step using branching logic
+          let nextStepId: string | null = null;
+
+          try {
+            const { data: branchResult, error: branchError } = await supabase.rpc('select_next_branch', {
+              p_enrollment_id: enrollmentId,
+              p_current_step_id: stepId
+            });
+
+            if (!branchError) {
+              nextStepId = branchResult;
+            } else {
+              // Fallback to linear next step if RPC fails or not found
+              console.warn('Branching RPC failed, falling back to linear:', branchError);
+            }
+          } catch (e) {
+            console.warn('Branching RPC error:', e);
+          }
+
+          // If branching didn't return a step (or failed), try linear fallback if no branch logic exists
+          // But if branching returned NULL explicitly (and no error), it means end of path.
+          // So only fallback if we didn't even try/succeed in calling the RPC.
+
+          let nextStep = null;
+
+          if (nextStepId) {
+            const { data: step } = await supabase
+              .from('sequence_steps')
+              .select('*')
+              .eq('id', nextStepId)
+              .single();
+            nextStep = step;
+          } else if (!nextStepId) {
+            // Fallback: Check if there are any steps with higher step_number (legacy support)
+            // Only if we suspect the RPC wasn't used correctly or for old sequences
+            const { data: linearStep } = await supabase
+              .from('sequence_steps')
+              .select('*')
+              .eq('template_id', currentStep.template_id)
+              .gt('step_number', currentStep.step_number)
+              .order('step_number', { ascending: true })
+              .limit(1)
+              .single();
+            nextStep = linearStep;
+          }
+
+          if (nextStep) {
+            // Schedule next step
+            // Calculate delay
+            const delayMs = (nextStep.wait_days * 24 * 60 * 60 * 1000) + (nextStep.wait_hours * 60 * 60 * 1000);
+            const nextScheduledAt = new Date(Date.now() + delayMs);
+
+            await supabase
+              .from('sequence_enrollments')
+              .update({
+                current_step: nextStep.step_number,
+                next_step_scheduled_at: nextScheduledAt.toISOString(),
+                last_step_executed_at: new Date().toISOString(),
+              })
+              .eq('id', enrollmentId);
+
+            // Create pending execution for next step
+            const { data: nextExecution } = await supabase
+              .from('sequence_step_executions')
+              .insert({
+                enrollment_id: enrollmentId,
+                step_id: nextStep.id,
+                status: 'pending',
+              })
+              .select()
+              .single();
+
+            // Queue next job
+            if (nextExecution) {
+              await queueManager.addSequenceJob({
+                id: nextExecution.id,
+                type: nextStep.step_type as any,
+                enrollmentId,
+                stepId: nextStep.id,
+                executionId: nextExecution.id,
+                data: {
+                  emailSubject: nextStep.email_subject,
+                  emailBody: nextStep.email_body,
+                  taskTitle: nextStep.task_title,
+                  taskDescription: nextStep.task_description,
+                },
+                metadata: job.data.metadata
+              });
+            }
+
+          } else {
+            // Sequence completed
+            await supabase
+              .from('sequence_enrollments')
+              .update({
+                status: 'completed',
+                completed_at: new Date().toISOString(),
+                last_step_executed_at: new Date().toISOString(),
+                next_step_scheduled_at: null,
+              })
+              .eq('id', enrollmentId);
+          }
+        }
+
+        return { success: true };
+      } catch (error) {
+        console.error(`Sequence step failed:`, error);
+
+        // Update execution status to failed
+        await supabase
+          .from('sequence_step_executions')
+          .update({
+            status: 'failed',
+            error_message: error instanceof Error ? error.message : 'Unknown error',
+          })
+          .eq('id', executionId);
+
+        throw error;
+      }
+    },
+    {
+      connection,
+      concurrency: 5,
+    }
+  );
+
   // Add error handlers
-  [enrichmentWorker, webhookWorker, scoringWorker].forEach((worker) => {
+  [enrichmentWorker, webhookWorker, scoringWorker, sequenceWorker].forEach((worker) => {
     worker.on('failed', (job, err) => {
       console.error(`Job ${job?.id} failed:`, err);
     });
@@ -575,6 +803,7 @@ export function initializeQueueWorkers() {
     enrichmentWorker,
     webhookWorker,
     scoringWorker,
+    sequenceWorker,
   };
 }
 
@@ -602,5 +831,9 @@ export const webhookQueue = new Queue<WebhookJob>(redisConfig.queues.webhooks, {
 });
 
 export const scoringQueue = new Queue<ScoringJob>(redisConfig.queues.scoring, {
+  connection: queueConnection,
+});
+
+export const sequenceQueue = new Queue<SequenceJob>(redisConfig.queues.sequences, {
   connection: queueConnection,
 });
