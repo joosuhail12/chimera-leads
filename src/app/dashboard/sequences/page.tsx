@@ -30,10 +30,18 @@ export default async function SequencesPage() {
   }
 
   let initialTemplates: SequenceTemplate[] = [];
-  try {
-    initialTemplates = await SequenceTemplateService.list(userId);
-  } catch (error) {
-    console.error('Failed to preload sequences:', error);
+  const hasSupabaseEnv = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+
+  if (hasSupabaseEnv) {
+    try {
+      initialTemplates = await SequenceTemplateService.list(userId);
+    } catch (error) {
+      console.error('Failed to preload sequences:', error);
+    }
+  } else {
+    console.warn('Skipping sequence prefetch: Supabase environment variables are missing.');
   }
 
   return (
