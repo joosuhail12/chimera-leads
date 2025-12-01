@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -14,6 +14,8 @@ import {
   Mail,
   TrendingUp,
   Clock,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,28 +28,54 @@ import {
 import { SequenceTemplate } from '@/lib/types/sequences';
 import { cn } from '@/lib/utils/cn';
 
-export function SequenceList() {
+interface SequenceListProps {
+  initialTemplates?: SequenceTemplate[];
+}
+
+export function SequenceList({ initialTemplates = [] }: SequenceListProps) {
   const router = useRouter();
-  const [templates, setTemplates] = useState<SequenceTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [templates, setTemplates] = useState<SequenceTemplate[]>(() => initialTemplates);
+  const [loading, setLoading] = useState(initialTemplates.length === 0);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadTemplates();
-  }, []);
+  const loadTemplates = useCallback(async () => {
+    setLoading(true);
+    setError(null);
 
-  const loadTemplates = async () => {
     try {
-      const response = await fetch('/api/sequences/templates');
-      if (response.ok) {
-        const data = await response.json();
-        setTemplates(data.templates);
+      const response = await fetch('/api/sequences/templates', {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(errorBody?.error || 'Unable to fetch sequences');
       }
-    } catch (error) {
-      console.error('Error loading templates:', error);
+
+      const data = await response.json();
+      setTemplates(data.templates || []);
+    } catch (err) {
+      console.warn('Error loading templates:', err);
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Failed to load sequences. Please check your connection and try again.';
+      setError(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (initialTemplates.length === 0) {
+      loadTemplates();
+    } else {
+      setLoading(false);
+      setError(null);
+      setTemplates(initialTemplates);
+    }
+  }, [initialTemplates, loadTemplates]);
 
   const handleClone = async (templateId: string, templateName: string) => {
     const newName = prompt(`Enter name for cloned sequence:`, `Copy of ${templateName}`);
@@ -62,9 +90,12 @@ export function SequenceList() {
 
       if (response.ok) {
         await loadTemplates();
+      } else {
+        const errorBody = await response.json().catch(() => null);
+        alert(errorBody?.error || 'Failed to clone sequence');
       }
     } catch (error) {
-      console.error('Error cloning template:', error);
+      console.warn('Error cloning template:', error);
     }
   };
 
@@ -83,7 +114,7 @@ export function SequenceList() {
         alert(error.error || 'Failed to delete sequence');
       }
     } catch (error) {
-      console.error('Error deleting template:', error);
+      console.warn('Error deleting template:', error);
     }
   };
 
@@ -97,14 +128,37 @@ export function SequenceList() {
 
       if (response.ok) {
         await loadTemplates();
+      } else {
+        const errorBody = await response.json().catch(() => null);
+        alert(errorBody?.error || 'Failed to update sequence');
       }
     } catch (error) {
-      console.error('Error toggling template status:', error);
+      console.warn('Error toggling template status:', error);
     }
   };
 
   if (loading) {
     return <div className="p-6">Loading sequences...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-800">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold">Unable to load sequences</p>
+              <p className="text-sm mt-1">{error}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={loadTemplates} className="gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (templates.length === 0) {

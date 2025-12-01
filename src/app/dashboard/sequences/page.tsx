@@ -10,6 +10,8 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SequenceList } from '@/components/sequences/sequence-list';
 import { SequenceMetrics } from '@/components/sequences/sequence-metrics';
+import { SequenceTemplateService } from '@/lib/services/sequences';
+import type { SequenceTemplate } from '@/lib/types/sequences';
 
 export const metadata = {
   title: 'Sequences | Chimera',
@@ -25,6 +27,13 @@ export default async function SequencesPage() {
         <p>Please sign in to view sequences.</p>
       </div>
     );
+  }
+
+  let initialTemplates: SequenceTemplate[] = [];
+  try {
+    initialTemplates = await SequenceTemplateService.list(userId);
+  } catch (error) {
+    console.error('Failed to preload sequences:', error);
   }
 
   return (
@@ -59,7 +68,7 @@ export default async function SequencesPage() {
       {/* Sequence List */}
       <div className="flex-1 overflow-auto">
         <Suspense fallback={<ListSkeleton />}>
-          <SequenceList />
+          <SequenceList initialTemplates={initialTemplates} />
         </Suspense>
       </div>
     </div>
